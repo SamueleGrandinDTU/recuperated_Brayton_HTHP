@@ -1,7 +1,13 @@
 # main/
 
-**Entry-point scripts** to run complete workflows (e.g. simulations, parameter sweeps, or case studies) by calling components (i.e. scripts) from `src/`. No core logic should be implemented here.
+**Entry-point scripts** used to run complete workflows and specific plant cases by calling the modules and functions defined in `src/`.
 
-No implementation of algorithmic logic (e.g. solver, discretization, boundary conditions, etc) is allowed in this folder. 
+No core modelling, numerical, or algorithmic logic should be implemented in this folder. The `main/` folder only orchestrates the execution of the workflows.
 
-**`main/` must only orchestrate calls to `src/`** to run complete workflows, including input reading from `data` and post processing: visualizatio and writing outputs in `results`
+For the current case, **`standalone_base_recup_hthp.py`** creates the configured TESPy network, assembles the corresponding plant model from `src/`, and runs the design-point simulation.
+
+As the repository develops, the entry-point scripts will also handle the execution of **post-processing, visualization, and output generation** using the corresponding modules in `src/`.
+
+The general workflow is:
+
+**`src/` → plant creation and modelling → simulation → post-processing → results**
