@@ -1,2 +1,8 @@
 # ignore virtual environment
 /tespy_env
+
+# ignore running files
+*.pyc
+
+# Python cache
+**/__pycache__
