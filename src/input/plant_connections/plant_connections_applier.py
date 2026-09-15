@@ -22,12 +22,12 @@ import json
 from typing import Dict, List
 
 from tespy.connections import Connection
-from tespy.components import Component
+import tespy.components as tc
 from tespy.networks import Network
 
 
 def set_plant_connections(
-    network: Network, components: Dict[str, Component], json_path: str
+    network: Network, components: Dict[str, tc.component], json_path: str
 ) -> None:
     """Load connection data, link the components, and add the resulting
     connections to a TESPy network.

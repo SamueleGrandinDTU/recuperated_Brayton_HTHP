@@ -12,7 +12,7 @@ from pathlib import Path
 
 from tespy.networks import Network
 
-from input import set_plant_components, set_plant_connections, set_plant_parameters
+from src import set_plant_components, set_plant_connections, set_plant_parameters
 
 # Absolute path to src/input/, resolved relative to this file so the
 # module works regardless of the caller's current working directory.
@@ -76,7 +76,7 @@ class standalone_base_recup_hthp(hthp_model):
 
     def __init__(self):
         super().__init__(
-            comp_file="standalone_base_recup_components.json",
-            conn_file="standalone_base_recup_connections.json",
-            data_file="standalone_base_recup_data.json",
+            comp_file="standalone_base_recup_hthp_components.json",
+            conn_file="standalone_base_recup_hthp_connections.json",
+            data_file="standalone_base_recup_hthp_data.json",
         )
