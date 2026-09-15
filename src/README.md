@@ -16,7 +16,7 @@ Scripts are well-documented and include docstrings.
 The `src/` folder is subdivided into the following main sections:
 
 - **`input/`** — plant configuration, input data, and functions used to build and parameterize the plant network.
-- **`[next folder]/`** — description to be added.
+- **`models/`** — specific plant configurations assembled from the input data.
 - **`[next folder]/`** — description to be added.
 - **`[next folder]/`** — description to be added.
 
@@ -27,3 +27,9 @@ The `input/` folder contains the functions and input data required to configure 
 The plant network is initialized by **`network_creator.py`**, which creates the TESPy network with the predefined configuration and default units.
 
 The input structure therefore separates the **plant configuration data** from the **source code used to build and parameterize the network**.
+
+### Models
+
+The `models/` folder contains the specific plant configurations considered in the project. Each model assembles the corresponding components, connections, and plant parameters from the `input/` folder into a complete TESPy plant case.
+
+Each plant configuration is defined in **`hthp_models.py`**, with the corresponding model class linking the model to its specific input files.
