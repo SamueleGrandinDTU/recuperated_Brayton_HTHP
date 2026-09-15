@@ -1,0 +1,6 @@
+tespy
+numpy
+matplotlib
+pandas
+CoolProp
+fluprodia
