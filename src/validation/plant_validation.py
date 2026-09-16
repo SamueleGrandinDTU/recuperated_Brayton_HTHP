@@ -498,7 +498,6 @@ def plot_ts_diagram(
             va=va_val,
         )
 
-    # Grid styling
     grid_style = plot_style["grid"]
 
     ax.grid(
@@ -515,6 +514,7 @@ def plot_ts_diagram(
 
     ax.set_box_aspect(plot_style["axes"]["box_aspect"])
     ax.set_facecolor(plot_style["figure"]["facecolor"])
+
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
 
@@ -554,6 +554,8 @@ def plot_ts_diagram(
             facecolor=plot_style["figure"]["facecolor"],
         )
         print(f"✓ Figure saved: {save_path / f'{file_name}_ts_diagram.png'}")
+    if file_name is None:
+        raise ValueError("file_name is required when save_path is given.")
 
     return fig, ax
 
@@ -614,5 +616,7 @@ def validate_plant(
         reference_csv=reference_csv,
         save_path=save_path,
     )
+    if file_name is None:
+        raise ValueError("file_name is required when save_path is given.")
 
     return df_comp, fig
