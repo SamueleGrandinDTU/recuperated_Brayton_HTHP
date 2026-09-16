@@ -26,7 +26,7 @@ The `input/` folder contains the functions and input data required to configure 
 
 The plant network is initialized by **`network_creator.py`**, which creates the TESPy network with the predefined configuration and default units.
 
-The `input/` folder also contains **`style_parameters/`**, which stores the common plotting configuration used throughout the project.
+The `input/` folder also contains `style_parameters/`, which stores the common plotting configuration used throughout the project.
 
 The input structure therefore separates the **plant configuration data** from the **source code used to build and parameterize the network**.
 
