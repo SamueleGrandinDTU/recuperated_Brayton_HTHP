@@ -17,8 +17,8 @@ The `src/` folder is subdivided into the following main sections:
 
 - **`input/`** — plant configuration, input data, and functions used to build and parameterize the plant network.
 - **`models/`** — specific plant configurations assembled from the input data.
-- **`validation/`** — functions used to validate the plant models against reference data.
 - **`plotting/`** — functions used to generate plots for the analysis and visualization of the plant cycle and its components.
+- **`validation/`** — functions used to validate the plant models against reference data.
 - **`[next folder]/`** — description to be added.
 
 ### Input
