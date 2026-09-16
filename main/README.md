@@ -16,4 +16,4 @@ For the current case the post-processing consists in the generation of relevant 
 
 The general workflow is:
 
-**`\`src/\`` → plant creation and modelling → simulation → validation/post-processing → results**
+**src → plant creation and modelling → simulation → validation/post-processing → results**
