@@ -18,6 +18,7 @@ The `src/` folder is subdivided into the following main sections:
 - **`input/`** — plant configuration, input data, and functions used to build and parameterize the plant network.
 - **`models/`** — specific plant configurations assembled from the input data.
 - **`validation/`** — functions used to validate the plant models against reference data.
+- **`plotting/`** — functions used to generate plots for the analysis and visualization of the plant cycle and its components.
 - **`[next folder]/`** — description to be added.
 
 ### Input
@@ -35,6 +36,12 @@ The input structure therefore separates the **plant configuration data** from th
 The `models/` folder contains the specific plant configurations considered in the project. Each model assembles the corresponding components, connections, and plant parameters from the `input/` folder into a complete TESPy plant case.
 
 Each plant configuration is defined in **`hthp_models.py`**, with the corresponding model class linking the model to its specific input files.
+
+### Plotting
+
+The `plotting/` folder contains the functions used to generate plots for the understanding and analysis of the plant cycle and its components.
+
+The folder currently contains **`ts_diagram.py`** and **`hx_diagram.py`**, which provide the functions that generate T-s diagrams for the cycle and diagrams for the analysis of heat exchanger performance.
 
 ### Validation
 

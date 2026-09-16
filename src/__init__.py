@@ -15,6 +15,8 @@ from .models import (
     standalone_base_recup_hthp,
 )
 
+from .plotting import plot_ts_diagram, plot_hx_diagram
+
 from .validation import validate_plant
 
 __all__ = [
@@ -24,5 +26,7 @@ __all__ = [
     "set_plant_connections",
     "create_configured_network",
     "standalone_base_recup_hthp",
+    "plot_ts_diagram",
+    "plot_hx_diagram",
     "validate_plant",
 ]
