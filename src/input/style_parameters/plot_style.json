@@ -1,0 +1,94 @@
+{
+  "figure": {
+    "figsize": [6, 5],
+    "dpi": 300,
+    "facecolor": "#FFFFFF"
+  },
+
+  "colors": {
+    "default": "#1f77b4",
+    "destruction": "#d62728",
+    "fuel": "#ff7f0e",
+    "product": "#2ca02c",
+    "process": "#ff0000",
+    "reference": "#0000ff",
+    "point": "#ff0000",
+    "label": "#000000",
+    "edge": "black"
+  },
+
+  "lines_and_markers": {
+    "linewidth": 1.2,
+    "point_size": 5
+  },
+
+  "fonts": {
+    "title": 16,
+    "label": 13,
+    "value": 11,
+    "legend": 9,
+    "tick": 12,
+    "isoline": 10
+  },
+
+  "layout": {
+    "auto_x_padding": 0.2,
+    "auto_y_padding": 20,
+    "label_x_offset": 0.01,
+    "label_y_offset": 5
+  },
+
+  "grid": {
+    "color": "#EAEAEA",
+    "linestyle": "-",
+    "linewidth": 0.5,
+    "alpha": 0.7
+  },
+
+  "axes": {
+    "spine_color": "#B5B5B5",
+    "spine_linewidth": 0.7,
+    "facecolor": "#FFFFFF",
+    "box_aspect": 1
+  },
+
+  "ticks": {
+    "axis": "both",
+    "which": "both",
+    "pad": 7,
+    "color": "#B5B5B5",
+    "labelcolor": "#333333",
+    "direction": "in"
+  },
+
+  "table": {
+    "fig_width": 12,
+    "min_fig_height": 4,
+    "row_height": 0.5,
+    "scale_x": 1.2,
+    "scale_y": 2.0,
+    "title_pad": 20
+  },
+
+  "ts_diagram": {
+    "isoline_quality": {
+      "start": 0,
+      "end": 1,
+      "num": 2
+    },
+    "isoline_enthalpy": {
+      "start": 0,
+      "end": 3501,
+      "step": 1000
+    }
+  },
+
+  "directional_labels": {
+    "0": [0.01, -2.0],
+    "1": [0.01, -2.0],
+    "2": [0.01, 0.0],
+    "3": [-0.01, 0.0],
+    "4": [-0.01, 0.0],
+    "5": [-0.01, 0.0]
+  }
+}

@@ -27,7 +27,7 @@ COMPONENT_MAPPING: Dict[str, type] = {
 }
 
 
-def set_plant_components(json_path: str) -> Dict[str, tc.Component]:
+def set_plant_components(json_path: str) -> Dict[str, tc.component]:
     """Load component definitions from a JSON file and instantiate them.
 
     Parameters
