@@ -10,6 +10,10 @@ The validation workflow is executed through **`\`validation_hthp.py\``**, which 
 
 As the repository develops, the entry-point scripts will also handle the execution of **post-processing, visualization, and output generation** using the corresponding modules in `\`src/\``.
 
+## Post-processing phase
+
+For the current case the post-processing consists in the generation of relevant plots. The plant's T-s diagram is generated through `plot_ts_diagram`, the temeprature profile in the Sink component is also generated through `plot_hx_diagram`.
+
 The general workflow is:
 
 **`\`src/\`` → plant creation and modelling → simulation → validation/post-processing → results**

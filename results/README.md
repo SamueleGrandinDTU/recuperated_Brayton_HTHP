@@ -14,3 +14,5 @@ Results files should be organized with clear naming conventions, e.g. by case or
 ### Validation
 
 The `validation/` folder contains the outputs generated during the validation of the plant models. It currently includes **T-s diagram comparisons** between the calculated and reference cycles, as well as **temperature comparison tables** for the validation cases.
+
+The `plots/` folder contains the outputs generated during the post-processing phase of the current case. It  includes the **T-s diagram** of the plant and the **hx diagram** of the Sink component.
