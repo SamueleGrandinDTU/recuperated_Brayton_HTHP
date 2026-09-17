@@ -294,6 +294,8 @@ def plot_hx_diagram(hx_component, file_name=None, save_path=None):
     fig.patch.set_facecolor(plot_style["figure"]["facecolor"])
 
     if save_path is not None:
+        if file_name is None:
+            raise ValueError("file_name is required when save_path is given.")
         save_path = Path(save_path)
         save_path.mkdir(parents=True, exist_ok=True)
         fig.savefig(
@@ -303,7 +305,5 @@ def plot_hx_diagram(hx_component, file_name=None, save_path=None):
             facecolor=plot_style["figure"]["facecolor"],
         )
         print(f"✓ Figure saved: {save_path / f'{file_name}_hx_diagram.png'}")
-        if file_name is None:
-            raise ValueError("file_name is required when save_path is given.")
 
     return fig, ax
