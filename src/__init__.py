@@ -17,6 +17,11 @@ from .models import (
 
 from .plotting import plot_ts_diagram, plot_hx_diagram
 
+from .post_processing import (
+    generate_performance_parameters_table,
+    generate_sizing_parameters_table,
+)
+
 from .validation import validate_plant
 
 __all__ = [
@@ -28,5 +33,7 @@ __all__ = [
     "standalone_base_recup_hthp",
     "plot_ts_diagram",
     "plot_hx_diagram",
+    "generate_performance_parameters_table",
+    "generate_sizing_parameters_table",
     "validate_plant",
 ]

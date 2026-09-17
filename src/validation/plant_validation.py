@@ -586,8 +586,8 @@ def validate_plant(
     file_name : str, optional
         Base file name used when saving the table and T-s diagram.
     save_path : str or Path, optional
-        Directory to save the table and T-s diagram as PNG files. If
-        None, nothing is saved to disk.
+        Directory to save the table and T-s diagram as PNG files.
+        If None, nothing is saved to disk.
 
     Returns
     -------
@@ -606,6 +606,8 @@ def validate_plant(
     print("\n")
 
     if save_path is not None:
+        if file_name is None:
+            raise ValueError("file_name is required when save_path is given.")
         save_table_as_png(
             df_comp, f"{title_name} - Temperature Comparison", save_path, file_name
         )
@@ -616,7 +618,5 @@ def validate_plant(
         reference_csv=reference_csv,
         save_path=save_path,
     )
-    if file_name is None:
-        raise ValueError("file_name is required when save_path is given.")
 
     return df_comp, fig

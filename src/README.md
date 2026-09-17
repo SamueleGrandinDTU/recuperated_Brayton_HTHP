@@ -43,6 +43,12 @@ The `plotting/` folder contains the functions used to generate plots for the und
 
 The folder currently contains **`ts_diagram.py`** and **`hx_diagram.py`**, which provide the functions that generate T-s diagrams for the cycle and diagrams for the analysis of heat exchanger performance.
 
+### Post-processing
+
+The `post_processing/` folder contains the functions used to generate parameters tables for the case study.
+
+The folder currently contains **`energy_analysis.py`** which generates both a performance and a sizing parameters table.
+
 ### Validation
 
 The `validation/` folder contains the functions used to validate the plant models against reference data. 
