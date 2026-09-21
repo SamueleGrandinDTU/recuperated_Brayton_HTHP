@@ -15,11 +15,12 @@ from .models import (
     standalone_base_recup_hthp,
 )
 
-from .plotting import plot_ts_diagram, plot_hx_diagram
+from .plotting import plot_ts_diagram, plot_hx_diagram, plot_exergy_destruction_stacked
 
 from .post_processing import (
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
+    get_exergy_analysis,
 )
 
 from .validation import validate_plant
@@ -33,7 +34,9 @@ __all__ = [
     "standalone_base_recup_hthp",
     "plot_ts_diagram",
     "plot_hx_diagram",
+    "plot_exergy_destruction_stacked",
     "generate_performance_parameters_table",
     "generate_sizing_parameters_table",
+    "get_exergy_analysis",
     "validate_plant",
 ]
