@@ -17,6 +17,8 @@ from src import (
     plot_hx_diagram,
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
+    get_exergy_analysis,
+    plot_exergy_destruction_stacked,
 )
 
 # 1. Create the network and assemble the plant into it
@@ -54,4 +56,12 @@ generate_sizing_parameters_table(
     title_name="Standalone Base Recuperated HTHP",
     file_name="standalone_base_recup_hthp",
     save_path="results/tables",
+)
+
+# 5. Perform exergy analysis, generate the exergy analysis table, and plot the exergy destruction stacked bar chart
+exergy_results = get_exergy_analysis(plant_standalone_base_recup)
+plot_exergy_destruction_stacked(
+    exergy_results["components"],
+    save_path="results/plots",
+    file_name="standalone_base_recup_hthp",
 )

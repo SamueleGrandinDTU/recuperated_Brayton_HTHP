@@ -12,7 +12,7 @@ As the repository develops, the entry-point scripts will also handle the executi
 
 ## Post-processing and plotting phase
 
-For the current case the post-processing consists in the generation of relevant plots. The plant's T-s diagram is generated through `plot_ts_diagram`, the temperature profile in the Sink component is also generated through `plot_hx_diagram`. Following, performance and sizing parameters are displayed in generated tables respectively through `generate_performance_parameters_table` and `generate_sizing_parameters_table`.
+For the current case the post-processing consists in the generation of relevant plots. The plant's T-s diagram is generated through `plot_ts_diagram`, the temperature profile in the Sink component is also generated through `plot_hx_diagram`. Following, performance and sizing parameters are displayed in generated tables respectively through `generate_performance_parameters_table` and `generate_sizing_parameters_table`. Secondly, the exergy analysis is generated through `get_exergy_analysis` and a breakdown of exergy destruction within components is shown through `plot_exergy_destruction` function.
 
 The general workflow is:
 
