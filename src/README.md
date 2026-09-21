@@ -47,7 +47,7 @@ The folder currently contains **`ts_diagram.py`** and **`hx_diagram.py`**, which
 
 The `post_processing/` folder contains the functions used to generate parameters tables for the case study.
 
-The folder currently contains **`energy_analysis.py`** which generates both a performance and a sizing parameters table.
+The folder currently contains **`energy_analysis.py`** which generates both a performance and a sizing parameters table. Also, in the **`exergy_analysis.py`** the module responsible for the generation of exergy results is available.
 
 ### Validation
 
