@@ -9,21 +9,24 @@ from .input import (
     set_plant_parameters,
     set_plant_components,
     set_plant_connections,
-    create_configured_network,
 )
 from .models import (
     standalone_base_recup_hthp,
+    standalone_base_recup_hthp_Benvenuti,
 )
-
-from .plotting import plot_ts_diagram, plot_hx_diagram, plot_exergy_destruction_stacked
 
 from .post_processing import (
+    plot_exergy_destruction_stacked,
+    plot_hx_diagram,
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
-    get_exergy_analysis,
+    validate_plant,
+    plot_ts_diagram,
 )
 
-from .validation import validate_plant
+from .exergy_analysis import get_exergy_analysis
+
+from .network_creator import create_configured_network
 
 __all__ = [
     "PLOT_STYLE",
@@ -32,11 +35,13 @@ __all__ = [
     "set_plant_connections",
     "create_configured_network",
     "standalone_base_recup_hthp",
-    "plot_ts_diagram",
-    "plot_hx_diagram",
+    "standalone_base_recup_hthp_Benvenuti",
     "plot_exergy_destruction_stacked",
+    "plot_hx_diagram",
     "generate_performance_parameters_table",
     "generate_sizing_parameters_table",
-    "get_exergy_analysis",
     "validate_plant",
+    "plot_ts_diagram",
+    "get_exergy_analysis",
+    "create_configured_network",
 ]

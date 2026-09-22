@@ -37,9 +37,9 @@ class hthp_model:
     """
 
     def __init__(self, comp_file: str, conn_file: str, data_file: str):
-        self.comp_json = BASE_INPUT_DIR / "plant_components" / comp_file
-        self.conn_json = BASE_INPUT_DIR / "plant_connections" / conn_file
-        self.data_json = BASE_INPUT_DIR / "plant_data" / data_file
+        self.comp_json = BASE_INPUT_DIR / "components" / comp_file
+        self.conn_json = BASE_INPUT_DIR / "connections" / conn_file
+        self.data_json = BASE_INPUT_DIR / "parameters" / data_file
 
     def build_into(self, network: Network) -> None:
         """Construct this specific plant configuration into the provided
@@ -78,5 +78,16 @@ class standalone_base_recup_hthp(hthp_model):
         super().__init__(
             comp_file="standalone_base_recup_hthp_components.json",
             conn_file="standalone_base_recup_hthp_connections.json",
-            data_file="standalone_base_recup_hthp_data.json",
+            data_file="standalone_base_recup_hthp_parameters.json",
+        )
+
+
+class standalone_base_recup_hthp_Benvenuti(hthp_model):
+    """Standalone, base, recuperated HTHP configuration."""
+
+    def __init__(self):
+        super().__init__(
+            comp_file="standalone_base_recup_hthp_components.json",
+            conn_file="standalone_base_recup_hthp_connections.json",
+            data_file="standalone_base_recup_hthp_parameters_Benvenuti.json",
         )
