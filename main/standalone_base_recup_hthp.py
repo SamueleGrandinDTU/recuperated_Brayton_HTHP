@@ -1,9 +1,11 @@
 """Entry-point script for the standalone, base, recuperated HTHP case.
 
 Creates a TESPy network, builds the plant topology and parameters into
-it via `standalone_base_recup_hthp`, and solves the design-point simulation.
+it via `standalone_base_recup_hthp`, and validates it against reference data.
 
-Post-processing and plotting phases include generation of TS diagram and hx diagram,
+Solves the design-point simulation with case study selected parameters.
+
+Post-processing include generation of TS diagram and hx diagram,
 as well as resuming tables for performance and sizing parameters.
 
 This file will be extended progressively as post-processing and
@@ -13,20 +15,40 @@ plotting steps are added.
 from src import (
     create_configured_network,
     standalone_base_recup_hthp,
+    standalone_base_recup_hthp_Benvenuti,
     plot_ts_diagram,
     plot_hx_diagram,
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
     get_exergy_analysis,
     plot_exergy_destruction_stacked,
+    validate_plant,
 )
 
-# 1. Create the network and assemble the plant into it
+# 1. Create the validation network and assemble the plant into it
+plant_standalone_base_recup_Benvenuti = create_configured_network()
+plant = standalone_base_recup_hthp_Benvenuti()
+plant.build_into(plant_standalone_base_recup_Benvenuti)
+
+# 2. Solve the validation plant and compare the results with the refernce data
+plant_standalone_base_recup_Benvenuti.solve(mode="design")
+plant_standalone_base_recup_Benvenuti.print_results()
+
+reference_plant_csv = "data/processed/Benvenuti_validation_recuperated.csv"
+
+validate_plant(
+    plant_standalone_base_recup_Benvenuti,
+    reference_plant_csv,
+    title_name="Benvenuti Validation",
+    file_name="standalone_base_recup_hthp_Benvenuti",
+    save_path="results/validation",
+)
+
+# 3. Change the parameters back to the design condition and solve the simulation
 plant_standalone_base_recup = create_configured_network()
 plant = standalone_base_recup_hthp()
 plant.build_into(plant_standalone_base_recup)
 
-# 2. Solve the design-point simulation
 plant_standalone_base_recup.solve(mode="design")
 plant_standalone_base_recup.print_results()
 

@@ -1,0 +1,3 @@
+Component,ε [-],UA [kW/K],ΔT_LMTD [K],Component,pr [-],V̇ [m³/s]
+Sink,0.89,118.9,8.4,Compressor,1.48,23.91
+Recuperator,0.94,264.0,13.6,Turbine,0.68,9.74
