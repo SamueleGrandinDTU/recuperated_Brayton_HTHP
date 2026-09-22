@@ -5,6 +5,6 @@
   {"label": "3", "source": "sink", "source_id": "out1", "target": "recuperator", "target_id": "in1"},
   {"label": "4", "source": "recuperator", "source_id": "out1", "target": "turbine", "target_id": "in1"},
   {"label": "5", "source": "turbine", "source_id": "out1", "target": "outlet", "target_id": "in1"},
-  {"label": "t1", "source": "tank 1", "source_id": "out1", "target": "sink", "target_id": "in2"},
-  {"label": "t2", "source": "sink", "source_id": "out2", "target": "tank 2", "target_id": "in1"}
+  {"label": "t1", "source": "industrial inlet", "source_id": "out1", "target": "sink", "target_id": "in2"},
+  {"label": "t2", "source": "sink", "source_id": "out2", "target": "industrial outlet", "target_id": "in1"}
 ]

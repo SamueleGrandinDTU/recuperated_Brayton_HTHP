@@ -5,6 +5,6 @@
   "compressor": "Compressor",
   "inlet": "Source",
   "outlet": "Sink",
-  "tank 1": "Source",
-  "tank 2": "Sink"
+  "industrial inlet": "Source",
+  "industrial outlet": "Sink"
 }
