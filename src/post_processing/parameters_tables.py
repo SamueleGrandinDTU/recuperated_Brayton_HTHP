@@ -1,7 +1,7 @@
 """Energy analysis post-processing.
 ===================================
 This module provides functions to generate tables of performance and sizing parameters,
-both in the command view and as .jpg files.
+in the command view, as .csv files, and (when a title is given) as .png files.
 """
 
 from pathlib import Path
@@ -10,6 +10,26 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from src import PLOT_STYLE
+
+
+def save_table_as_csv(df, save_path, file_name):
+    """Save a table as a CSV file.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Table to save, in the same row/column layout used for the console view.
+    save_path : str or Path
+        Directory to save the file into.
+    file_name : str
+        Output file name, without extension.
+    """
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+    csv_path = save_path / f"{file_name}.csv"
+    df.to_csv(csv_path, index=False, header=False)
+    print(f"✓ Table saved: {csv_path}")
+    return df
 
 
 def save_table_as_png(df, title, save_path, file_name):
@@ -86,18 +106,21 @@ def save_table_as_png(df, title, save_path, file_name):
 def generate_performance_parameters_table(
     plant, title_name=None, file_name=None, save_path=None
 ):
-    """Generate a table of performance parameters and save it as a PNG image.
+    """Generate a table of performance parameters.
+
+    The table is always saved as a CSV when save_path is given. It is also
+    saved as a PNG image, but only when title_name is given.
 
     Parameters
     ----------
     plant : tespy.networks.network.Network
         Solved plant network.
     title_name : str, optional
-        Title used for printed output and the saved table.
+        Title used for the saved PNG table. If None, no PNG is generated.
     file_name : str, optional
         Base file name used when saving the table (characterisitc extension is added).
     save_path : str or Path, optional
-        Directory to save the table as PNG files.
+        Directory to save the table as CSV / PNG files.
         If None, nothing is saved to disk.
 
     Returns
@@ -143,7 +166,7 @@ def generate_performance_parameters_table(
         ]
     )
 
-    # Command view version
+    # Command view / CSV version
     label_w_cp = "w_cp [kJ/kg]"
     label_w_tu = "w_tu [kJ/kg]"
     label_q_sink = "q̇_Sink [kJ/kg]"
@@ -171,12 +194,16 @@ def generate_performance_parameters_table(
     if save_path is not None:
         if file_name is None:
             raise ValueError("file_name is required when save_path is given.")
-        save_table_as_png(
-            df_perf_table,
-            f"{title_name} - Performance Parameters",
-            save_path,
-            f"{file_name}_performance_parameters",
-        )
+
+        save_table_as_csv(df_perf, save_path, f"{file_name}_performance_parameters")
+
+        if title_name is not None:
+            save_table_as_png(
+                df_perf_table,
+                f"{title_name} - Performance Parameters",
+                save_path,
+                f"{file_name}_performance_parameters",
+            )
 
     return df_perf
 
@@ -184,18 +211,21 @@ def generate_performance_parameters_table(
 def generate_sizing_parameters_table(
     plant, title_name=None, file_name=None, save_path=None
 ):
-    """Generate a table of sizing parameters and save it as a PNG image.
+    """Generate a table of sizing parameters.
+
+    The table is always saved as a CSV when save_path is given. It is also
+    saved as a PNG image, but only when title_name is given.
 
     Parameters
     ----------
     plant : tespy.networks.network.Network
         Solved plant network.
     title_name : str, optional
-        Title used for printed output and the saved table.
+        Title used for the saved PNG table. If None, no PNG is generated.
     file_name : str, optional
         Base file name used when saving the table (characteristic extension is added).
     save_path : str or Path, optional
-        Directory to save the table as PNG files.
+        Directory to save the table as CSV / PNG files.
         If None, nothing is saved to disk.
 
     Returns
@@ -257,7 +287,7 @@ def generate_sizing_parameters_table(
 
     df_sizing_table = pd.DataFrame([header_table] + rows)
 
-    # Command view version
+    # Command view / CSV version
     header = [
         "Component",
         "ε [-]",
@@ -279,11 +309,15 @@ def generate_sizing_parameters_table(
     if save_path is not None:
         if file_name is None:
             raise ValueError("file_name is required when save_path is given.")
-        save_table_as_png(
-            df_sizing_table,
-            f"{title_name} - Sizing Parameters",
-            save_path,
-            f"{file_name}_sizing_parameters",
-        )
+
+        save_table_as_csv(df_sizing, save_path, f"{file_name}_sizing_parameters")
+
+        if title_name is not None:
+            save_table_as_png(
+                df_sizing_table,
+                f"{title_name} - Sizing Parameters",
+                save_path,
+                f"{file_name}_sizing_parameters",
+            )
 
     return df_sizing

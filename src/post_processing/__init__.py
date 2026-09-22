@@ -1,14 +1,23 @@
 """Post-processing package"""
 
-from .energy_analysis import (
+from .exergy_plotting import plot_exergy_destruction_stacked
+
+from .hx_diagram import plot_hx_diagram
+
+from .parameters_tables import (
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
 )
 
-from .exergy_analysis import get_exergy_analysis
+from .plant_validation import validate_plant
+
+from .ts_diagram import plot_ts_diagram
 
 __all__ = [
+    "plot_exergy_destruction_stacked",
+    "plot_hx_diagram",
     "generate_performance_parameters_table",
     "generate_sizing_parameters_table",
-    "get_exergy_analysis",
+    "validate_plant",
+    "plot_ts_diagram",
 ]
