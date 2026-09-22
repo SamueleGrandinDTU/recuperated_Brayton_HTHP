@@ -24,7 +24,7 @@ through ``set_plant_connections``).
 """
 
 import json
-from typing import Any, Dict
+from typing import Dict
 
 import numpy as np
 from tespy.networks import Network

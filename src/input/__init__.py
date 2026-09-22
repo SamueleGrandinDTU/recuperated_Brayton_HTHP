@@ -1,15 +1,13 @@
 """Input package"""
 
-from .style_parameters import PLOT_STYLE
-from .plant_data import set_plant_parameters
-from .plant_components import set_plant_components
-from .plant_connections import set_plant_connections
-from .network_creator import create_configured_network
+from .styling import PLOT_STYLE
+from .parameters import set_plant_parameters
+from .components import set_plant_components
+from .connections import set_plant_connections
 
 __all__ = [
     "PLOT_STYLE",
     "set_plant_parameters",
     "set_plant_components",
     "set_plant_connections",
-    "create_configured_network",
 ]
