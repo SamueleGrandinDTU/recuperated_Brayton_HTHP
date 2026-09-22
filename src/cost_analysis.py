@@ -29,6 +29,13 @@ _TURTON_COEFFS = {
         "F_BM": 3.4,
         "limits": (100, 4000),
     },
+    "Tank": {
+        "K1": 4.8509,
+        "K2": -0.3973,
+        "K3": 0.1445,
+        "F_BM": 1,
+        "limits": (90, 30000),
+    },
 }
 
 # Cost indexes for the reference year of each correlation (CEPCI-style).
@@ -76,12 +83,15 @@ def calculate_component_cost(plant):
     print(f"\n{'=' * 100}")
     print("COMPONENT COST ESTIMATION")
     print(f"{'=' * 100}")
-    print("Turbomachinery cost correlation: Turton et al. (2001)")
+    print("Turbomachinery and tank cost correlation: Turton et al. (2001)")
     print(
         f"  Compressor validity range: {_TURTON_COEFFS['Compressor']['limits'][0]}-{_TURTON_COEFFS['Compressor']['limits'][1]} kW"
     )
     print(
         f"  Turbine validity range: {_TURTON_COEFFS['Turbine']['limits'][0]}-{_TURTON_COEFFS['Turbine']['limits'][1]} kW"
+    )
+    print(
+        f"  Tank validity range: {_TURTON_COEFFS['Tank']['limits'][0]}-{_TURTON_COEFFS['Tank']['limits'][1]} m³"
     )
     print("Heat exchanger cost correlation: Morandin et al. (2009)")
     print(
@@ -121,6 +131,36 @@ def calculate_component_cost(plant):
                     "Type": comp_type,
                     "Basis parameter": "Power [kW]",
                     "Basis value": round(P_kW, 1),
+                    "Cost [M$]": round(cost_M, 3),
+                }
+            )
+
+        if comp_type in ("Tank"):
+            coeffs = _TURTON_COEFFS[comp_type]
+            V_m3 = abs(comp.V.val)
+
+            lower, upper = coeffs["limits"]
+            if not (lower <= V_m3 <= upper):
+                print(
+                    f"Error: {comp.label} volume ({round(V_m3, 1)} m³) is outside "
+                    f"the Turton correlation validity range ({lower}-{upper} m³). "
+                    "The cost below is extrapolated and may not be reliable."
+                )
+
+            log_V = math.log10(V_m3)
+            C_p0 = 10 ** (coeffs["K1"] + coeffs["K2"] * log_V + coeffs["K3"] * log_V**2)
+            C_BM = C_p0 * coeffs["F_BM"]
+            cost = (
+                C_BM * _COST_INDEX_REFERENCE["2025"] / _COST_INDEX_REFERENCE["Turton"]
+            )
+            cost_M = cost / 1e6
+
+            rows.append(
+                {
+                    "Component": comp.label,
+                    "Type": comp_type,
+                    "Basis parameter": "Volume [m³]",
+                    "Basis value": round(V_m3, 1),
                     "Cost [M$]": round(cost_M, 3),
                 }
             )
