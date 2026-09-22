@@ -24,6 +24,8 @@ from .post_processing import (
     plot_ts_diagram,
 )
 
+from .cost_analysis import calculate_component_cost
+
 from .exergy_analysis import get_exergy_analysis
 
 from .network_creator import create_configured_network
@@ -42,6 +44,7 @@ __all__ = [
     "generate_sizing_parameters_table",
     "validate_plant",
     "plot_ts_diagram",
+    "calculate_component_cost",
     "get_exergy_analysis",
     "create_configured_network",
 ]

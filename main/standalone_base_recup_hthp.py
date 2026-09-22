@@ -23,6 +23,7 @@ from src import (
     get_exergy_analysis,
     plot_exergy_destruction_stacked,
     validate_plant,
+    calculate_component_cost,
 )
 
 # 1. Create the validation network and assemble the plant into it
@@ -87,3 +88,6 @@ plot_exergy_destruction_stacked(
     save_path="results/plots",
     file_name="standalone_base_recup_hthp",
 )
+
+# 6. Estimate the component costs
+calculate_component_cost(plant_standalone_base_recup)
