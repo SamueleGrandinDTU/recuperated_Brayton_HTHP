@@ -246,7 +246,7 @@ def generate_performance_parameters_table(
         labels_table.append(
             rf"$\mathbf{{\dot{{q}}_{{\mathrm{{{hx.label}}}}}}}$" + "\n[kJ/kg]"
         )
-        labels_plain.append(f"q̇_{hx.label} [kJ/kg]")
+        labels_plain.append(f"q_{hx.label} [kJ/kg]")
         values.append(round(specific_heat, 2))
 
     labels_table.append("COP\n[-]")
@@ -321,11 +321,11 @@ def generate_sizing_parameters_table(
     ]
     header_plain = [
         "Component",
-        "ε [-]",
+        "eff [-]",
         "UA [kW/K]",
-        "ΔT_LMTD [K]",
+        "DT_LMTD [K]",
         "pr [-]",
-        "V̇ [m³/s]",
+        "VV [m^3/s]",
     ]
 
     rows = []
@@ -365,3 +365,101 @@ def generate_sizing_parameters_table(
             )
 
     return df_sizing
+
+
+def _get_connection_fluid(conn):
+    """Return a connection's dominant fluid name (highest mass fraction), or
+    "-" if the connection has no fluid composition set.
+    """
+    fluid_val = conn.fluid.val
+    if not fluid_val:
+        return "-"
+    return max(fluid_val, key=fluid_val.get)
+
+
+def generate_connections_table(plant, title_name=None, file_name=None, save_path=None):
+    """Generate a table of connection state properties.
+
+    One row is generated per connection with a defined state (temperature,
+    pressure, entropy, enthalpy and mass flow all set); connections that
+    haven't been solved are skipped.
+
+    The table is always saved as a CSV when save_path is given. It is also
+    saved as a PNG image, but only when title_name is given.
+
+    Parameters
+    ----------
+    plant : tespy.networks.network.Network
+        Solved plant network.
+    title_name : str, optional
+        Title used for the saved PNG table. If None, no PNG is generated.
+    file_name : str, optional
+        Base file name used when saving the table (characteristic extension
+        is added).
+    save_path : str or Path, optional
+        Directory to save the table as CSV / PNG files.
+        If None, nothing is saved to disk.
+
+    Returns
+    -------
+    df_connections : pd.DataFrame
+        Connection state properties table.
+    """
+
+    header = [
+        "Connection",
+        "T [degC]",
+        "p [bar]",
+        "s [kJ/kgK]",
+        "h [kJ/kg]",
+        "m [kg/s]",
+        "fluid",
+    ]
+
+    rows = []
+
+    for conn in plant.conns["object"]:
+        if (
+            conn.T.val is None
+            or conn.p.val is None
+            or conn.s.val is None
+            or conn.h.val is None
+            or conn.m.val is None
+        ):
+            continue
+
+        rows.append(
+            [
+                conn.label,
+                round(conn.T.val, 1),
+                round(conn.p.val, 2),
+                round(conn.s.val, 3),
+                round(conn.h.val, 2),
+                round(conn.m.val, 3),
+                _get_connection_fluid(conn),
+            ]
+        )
+
+    df_connections = pd.DataFrame([header] + rows)
+
+    print(f"\n{'='*100}")
+    print("CONNECTION STATE PROPERTIES")
+    print(f"{'='*100}")
+    _print_aligned_table(df_connections)
+    print(f"{'='*100}")
+
+    if save_path is not None:
+        if file_name is None:
+            raise ValueError("file_name is required when save_path is given.")
+
+        save_table_as_csv(df_connections, save_path, f"{file_name}_connections")
+
+        if title_name is not None:
+            save_table_as_png(
+                df_connections,
+                f"{title_name} - Connection Properties",
+                save_path,
+                f"{file_name}_connections",
+            )
+
+    return df_connections
