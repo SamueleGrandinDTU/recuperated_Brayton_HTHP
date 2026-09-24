@@ -24,6 +24,8 @@ from src import (
     plot_exergy_destruction_stacked,
     validate_plant,
     calculate_component_cost,
+    optimize_operational_strategy,
+    plot_operational_strategy,
 )
 
 # 1. Create the validation network and assemble the plant into it
@@ -91,3 +93,15 @@ plot_exergy_destruction_stacked(
 
 # 6. Estimate the component costs
 calculate_component_cost(plant_standalone_base_recup)
+
+# 7. Optimize the operational strategy and plot the results
+result = optimize_operational_strategy(
+    plant_standalone_base_recup,
+    E_TES=8.0,
+    market="DK1",
+    week=1,
+)
+
+plot_operational_strategy(
+    result, save_path="results/temporary/example_week1_2025_dk1.png"
+)
