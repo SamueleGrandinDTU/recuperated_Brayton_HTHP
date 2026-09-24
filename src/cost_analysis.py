@@ -46,6 +46,11 @@ _HX_U_VALUES = {
     "recuperator": 35,  # gas-to-gas, shell-and-tube, 1 bar
 }
 
+# The Turton/Morandin correlations return costs in $; convert to € here so
+# the console table, the returned DataFrame, and any plot built from it all
+# agree on the currency.
+_USD_TO_EUR = 0.92
+
 
 def calculate_component_cost(plant):
     """Estimate and print the cost of the plant's compressors, turbines and
@@ -113,7 +118,7 @@ def calculate_component_cost(plant):
             cost = (
                 C_BM * _COST_INDEX_REFERENCE["2025"] / _COST_INDEX_REFERENCE["Turton"]
             )
-            cost_M = cost / 1e6
+            cost_M = cost / 1e6 * _USD_TO_EUR
 
             rows.append(
                 {
@@ -121,7 +126,7 @@ def calculate_component_cost(plant):
                     "Type": comp_type,
                     "Basis parameter": "Power [kW]",
                     "Basis value": round(P_kW, 1),
-                    "Cost [M$]": round(cost_M, 3),
+                    "Cost [M€]": round(cost_M, 3),
                 }
             )
 
@@ -137,7 +142,7 @@ def calculate_component_cost(plant):
             cost = (
                 C_BM * _COST_INDEX_REFERENCE["2025"] / _COST_INDEX_REFERENCE["Morandin"]
             )
-            cost_M = cost / 1e6
+            cost_M = cost / 1e6 * _USD_TO_EUR
 
             rows.append(
                 {
@@ -145,19 +150,19 @@ def calculate_component_cost(plant):
                     "Type": comp_type,
                     "Basis parameter": "Area [m²]",
                     "Basis value": round(area, 2),
-                    "Cost [M$]": round(cost_M, 3),
+                    "Cost [M€]": round(cost_M, 3),
                 }
             )
 
     df_cost = pd.DataFrame(rows)
-    total_cost = df_cost["Cost [M$]"].sum()
+    total_cost = df_cost["Cost [M€]"].sum()
 
     print(f"{'=' * 100}")
     print("COMPONENT COSTS")
     print(f"{'=' * 100}")
     print(df_cost.to_string(index=False))
     print(f"{'=' * 100}")
-    print(f"Total plant cost: {round(total_cost, 3)} M$")
+    print(f"Total plant cost: {round(total_cost, 3)} M€")
     print(f"{'=' * 100}")
 
     return df_cost
