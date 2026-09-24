@@ -59,13 +59,8 @@ generate_sizing_parameters_table(
     save_path="results/tables",
 )
 
-# 4. Perform exergy analysis, generate the exergy analysis table, and plot the exergy destruction stacked bar chart
+# 4. Perform exergy analysis, generate the exergy analysis table
 exergy_results = get_exergy_analysis(plant_tes_integr_base_recup_hthp)
-plot_exergy_destruction_stacked(
-    exergy_results["components"],
-    save_path="results/plots",
-    file_name="tes_integr_base_recup_hthp",
-)
 
 # 5. Estimate the component costs
 calculate_component_cost(plant_tes_integr_base_recup_hthp)
