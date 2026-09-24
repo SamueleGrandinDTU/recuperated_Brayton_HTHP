@@ -12,14 +12,32 @@ import numpy as np
 from src import PLOT_STYLE
 
 
-def plot_hx_diagram(hx_component, file_name=None, save_path=None):
+def _display_label(conn):
+    """Return a connection's label for display, bypassing a CycleCloser.
+
+    A CycleCloser passes the fluid state through unchanged (its inlet and
+    outlet are the same physical state), so its own boundary label is an
+    artifact of closing the loop, not a meaningful point in the cycle. If
+    `conn` sits right on a CycleCloser's boundary, this follows through to
+    the label on the other side of it instead.
     """
-    Plot a single heat exchanger diagram (or multiple in series).
+    if conn.target.__class__.__name__ == "CycleCloser":
+        return conn.target.outl[0].label
+    if conn.source.__class__.__name__ == "CycleCloser":
+        return conn.source.inl[0].label
+    return conn.label
+
+
+def plot_hx_diagram(hx_components, file_name=None, save_path=None):
+    """
+    Plot one or more heat exchangers in series on the same diagram
+    (e.g. [sink] for a single heat exchanger, or [sink_1, sink_2] to plot
+    them sequentially in the same figure).
 
     Parameters
     ----------
     hx_components : list of HeatExchanger components
-        List of HX components to plot
+        List of HX components to plot, in series order.
     file_name : str, optional
         Base name for the saved file (will be saved as PNG)
     save_path : str or Path, optional
@@ -32,6 +50,10 @@ def plot_hx_diagram(hx_component, file_name=None, save_path=None):
 
     plot_style = PLOT_STYLE
 
+    # Accept either a single HeatExchanger component or a list of them.
+    if not isinstance(hx_components, (list, tuple)):
+        hx_components = [hx_components]
+
     fig, ax = plt.subplots(
         1, 1, figsize=plot_style["figure"]["figsize"], dpi=plot_style["figure"]["dpi"]
     )
@@ -40,37 +62,38 @@ def plot_hx_diagram(hx_component, file_name=None, save_path=None):
     hx_data = []
     total_Q = 0
 
-    c_hot_in = hx_component.inl[0]
-    c_hot_out = hx_component.outl[0]
-    c_cold_in = hx_component.inl[1]
-    c_cold_out = hx_component.outl[1]
+    for hx_comp in hx_components:
+        c_hot_in = hx_comp.inl[0]
+        c_hot_out = hx_comp.outl[0]
+        c_cold_in = hx_comp.inl[1]
+        c_cold_out = hx_comp.outl[1]
 
-    T_hot_in = c_hot_in.T.val
-    T_hot_out = c_hot_out.T.val
-    T_cold_in = c_cold_in.T.val
-    T_cold_out = c_cold_out.T.val
-    m_hot = c_hot_in.m.val
-    m_cold = c_cold_in.m.val
+        T_hot_in = c_hot_in.T.val
+        T_hot_out = c_hot_out.T.val
+        T_cold_in = c_cold_in.T.val
+        T_cold_out = c_cold_out.T.val
+        m_hot = c_hot_in.m.val
+        m_cold = c_cold_in.m.val
 
-    Q = abs(hx_component.Q.val)  # Heat transferred [MW]
-    total_Q += Q
+        Q = abs(hx_comp.Q.val)  # Heat transferred [MW]
+        total_Q += Q
 
-    hx_data.append(
-        {
-            "comp_name": hx_component.label,
-            "T_hot_in": T_hot_in,
-            "T_hot_out": T_hot_out,
-            "T_cold_in": T_cold_in,
-            "T_cold_out": T_cold_out,
-            "m_hot": m_hot,
-            "m_cold": m_cold,
-            "Q": Q,
-            "hot_in_label": c_hot_in.label,
-            "hot_out_label": c_hot_out.label,
-            "cold_in_label": c_cold_in.label,
-            "cold_out_label": c_cold_out.label,
-        }
-    )
+        hx_data.append(
+            {
+                "comp_name": hx_comp.label,
+                "T_hot_in": T_hot_in,
+                "T_hot_out": T_hot_out,
+                "T_cold_in": T_cold_in,
+                "T_cold_out": T_cold_out,
+                "m_hot": m_hot,
+                "m_cold": m_cold,
+                "Q": Q,
+                "hot_in_label": _display_label(c_hot_in),
+                "hot_out_label": _display_label(c_hot_out),
+                "cold_in_label": _display_label(c_cold_in),
+                "cold_out_label": _display_label(c_cold_out),
+            }
+        )
 
     # Plot all heat exchangers
     hx_data_reversed = list(reversed(hx_data))
