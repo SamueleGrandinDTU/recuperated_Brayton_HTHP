@@ -40,7 +40,10 @@ plot_ts_diagram(
 )
 
 plot_hx_diagram(
-    plant_standalone_interc_recup.comps.loc["sink", "object"],
+    [
+        plant_standalone_interc_recup.comps.loc["sink 1", "object"],
+        plant_standalone_interc_recup.comps.loc["sink 2", "object"],
+    ],
     file_name="standalone_interc_recup_hthp",
     save_path="results/plots",
 )

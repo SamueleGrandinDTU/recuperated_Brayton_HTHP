@@ -69,14 +69,12 @@ plot_hx_diagram(
 # 4. Generate tables for performance and sizing parameters
 generate_performance_parameters_table(
     plant_standalone_base_recup,
-    title_name="Standalone Base Recuperated HTHP",
     file_name="standalone_base_recup_hthp",
     save_path="results/tables",
 )
 
 generate_sizing_parameters_table(
     plant_standalone_base_recup,
-    title_name="Standalone Base Recuperated HTHP",
     file_name="standalone_base_recup_hthp",
     save_path="results/tables",
 )
