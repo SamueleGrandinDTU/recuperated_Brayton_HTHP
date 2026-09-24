@@ -70,25 +70,18 @@ plot_hx_diagram(
 # 4. Generate tables for performance and sizing parameters
 generate_performance_parameters_table(
     plant_standalone_base_recup,
-    title_name="Standalone Base Recuperated HTHP",
     file_name="standalone_base_recup_hthp",
     save_path="results/tables",
 )
 
 generate_sizing_parameters_table(
     plant_standalone_base_recup,
-    title_name="Standalone Base Recuperated HTHP",
     file_name="standalone_base_recup_hthp",
     save_path="results/tables",
 )
 
-# 5. Perform exergy analysis, generate the exergy analysis table, and plot the exergy destruction stacked bar chart
+# 5. Perform exergy analysis, generate the exergy analysis table
 exergy_results = get_exergy_analysis(plant_standalone_base_recup)
-plot_exergy_destruction_stacked(
-    exergy_results["components"],
-    save_path="results/plots",
-    file_name="standalone_base_recup_hthp",
-)
 
 # 6. Estimate the component costs and plot the component cost stacked bar chart
 component_cost = calculate_component_cost(plant_standalone_base_recup)

@@ -13,6 +13,9 @@ from .input import (
 from .models import (
     standalone_base_recup_hthp,
     standalone_base_recup_hthp_Benvenuti,
+    standalone_interc_recup_hthp,
+    tes_integr_base_recup_hthp,
+    tes_integr_interc_recup_hthp,
 )
 
 from .post_processing import (
@@ -39,6 +42,9 @@ __all__ = [
     "create_configured_network",
     "standalone_base_recup_hthp",
     "standalone_base_recup_hthp_Benvenuti",
+    "standalone_interc_recup_hthp",
+    "tes_integr_base_recup_hthp",
+    "tes_integr_interc_recup_hthp",
     "plot_exergy_destruction_stacked",
     "plot_component_cost_stacked",
     "plot_hx_diagram",

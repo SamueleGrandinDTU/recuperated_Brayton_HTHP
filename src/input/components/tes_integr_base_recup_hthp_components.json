@@ -1,0 +1,12 @@
+{
+  "sink": "HeatExchanger",
+  "recuperator": "HeatExchanger",
+  "turbine": "Turbine",
+  "compressor": "Compressor",
+  "inlet": "Source",
+  "outlet": "Sink",
+  "cycle closer": "CycleCloser",
+  "interface hx": "HeatExchanger",
+  "industrial inlet": "Source",
+  "industrial outlet": "Sink"
+}

@@ -1,0 +1,12 @@
+{
+  "sink 1": "HeatExchanger",
+  "sink 2": "HeatExchanger",
+  "recuperator": "HeatExchanger",
+  "turbine": "Turbine",
+  "compressor 1": "Compressor",
+  "compressor 2": "Compressor",
+  "inlet": "Source",
+  "outlet": "Sink",
+  "industrial inlet": "Source",
+  "industrial outlet": "Sink"
+}
