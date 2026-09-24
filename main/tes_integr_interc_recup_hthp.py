@@ -20,9 +20,8 @@ from src import (
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
     get_exergy_analysis,
-    plot_exergy_destruction_stacked,
-    validate_plant,
     calculate_component_cost,
+    calculate_tanks_geometry,
 )
 
 # 1. Solve the simulation in the design condition
@@ -61,5 +60,11 @@ generate_sizing_parameters_table(
 
 # 4. Perform exergy analysis, generate the exergy analysis table
 exergy_results = get_exergy_analysis(plant_tes_integr_interc_recup_hthp)
-# 5. Estimate the component costs
-calculate_component_cost(plant_tes_integr_interc_recup_hthp)
+
+# 5. Calculate the TES tank geometry
+tank1, tank2 = calculate_tanks_geometry(
+    plant_tes_integr_interc_recup_hthp, ["t1", "t2"], storage_duration=8
+)
+
+# 6. Estimate the component costs
+calculate_component_cost(plant_tes_integr_interc_recup_hthp, [tank1, tank2])

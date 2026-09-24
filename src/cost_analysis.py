@@ -14,6 +14,7 @@ import pandas as pd
 # Turton correlation coefficients: Cp0 = 10^(K1 + K2*log10(P) + K3*log10(P)^2),
 # P in kW. C_BM = Cp0 * F_BM. "limits" are the correlation's validated power
 # range in kW.
+# "limits" for Tank are validated volume range in m³, not power.
 _TURTON_COEFFS = {
     "Compressor": {
         "K1": 2.2897,
@@ -42,7 +43,6 @@ _TURTON_COEFFS = {
 _COST_INDEX_REFERENCE = {
     "Turton": 394,  # 2001
     "Morandin": 522,  # 2009
-    "2025": 800,  # Current cost index (CEPCI)
 }
 
 # Overall heat transfer coefficients [W/m²K] used to back out the heat
@@ -59,15 +59,22 @@ _HX_U_VALUES = {
 _USD_TO_EUR = 0.92
 
 
-def calculate_component_cost(plant):
+def calculate_component_cost(plant, external_components=None, I_current=800):
     """Estimate and print the cost of the plant's compressors, turbines and
-    heat exchangers.
+    heat exchangers, plus any TES tanks passed in separately.
 
     Compressor/turbine cost basis: power [kW], Turton et al. (2001)
     correlation, actualized from the 2001 cost index to the current one.
     Heat exchanger cost basis: heat transfer area [m²] (back-calculated from
     kA and an assumed overall heat transfer coefficient U), Morandin
     correlation, actualized from the 2009 cost index to the current one.
+    Tank cost basis: volume [m³] (from `geometry.calculate_tanks_geometry`),
+    Turton et al. (2001) correlation, actualized the same way as
+    compressors/turbines.
+
+    Tanks aren't part of the TESPy network, so they can't be discovered from
+    `plant.comps["object"]` the way compressors/turbines/heat exchangers are;
+    they're passed in explicitly via `external_components`.
 
     The cost indexes for each correlation's reference year (_COST_INDEX_REFERENCE)
     and the heat exchanger U values (_HX_U_VALUES) are fixed module-level
@@ -77,13 +84,18 @@ def calculate_component_cost(plant):
     ----------
     plant : tespy.networks.network.Network
         Solved plant network.
+    external_components : list, optional
+        Components that aren't part of the TESPy network but should still be
+        costed, e.g. the Tank objects returned by
+        `geometry.calculate_tanks_geometry`. Only Tank objects are costed;
+        anything else in the list is ignored.
     I_current : float, optional
         Current cost index (CEPCI). Default 800 (2025).
 
     Returns
     -------
     df_cost : pd.DataFrame
-        Component cost table (Component, Type, Basis parameter, Basis value, Cost [M$]).
+        Component cost table (Component, Type, Basis parameter, Basis value, Cost [M€]).
     """
     print(f"\n{'=' * 100}")
     print("COMPONENT COST ESTIMATION")
@@ -98,7 +110,7 @@ def calculate_component_cost(plant):
     print(
         f"  Tank validity range: {_TURTON_COEFFS['Tank']['limits'][0]}-{_TURTON_COEFFS['Tank']['limits'][1]} m³"
     )
-    print("Heat exchanger cost correlation: Morandin et al. (2009)")
+    print("Heat exchanger cost correlation: Morandin")
     print(
         f"  Recuperator-type HX: gas-to-gas, shell-and-tube, 1 bar, "
         f"U = {_HX_U_VALUES['recuperator']} W/m²K"
@@ -125,10 +137,8 @@ def calculate_component_cost(plant):
             log_P = math.log10(P_kW)
             C_p0 = 10 ** (coeffs["K1"] + coeffs["K2"] * log_P + coeffs["K3"] * log_P**2)
             C_BM = C_p0 * coeffs["F_BM"]
-            cost = (
-                C_BM * _COST_INDEX_REFERENCE["2025"] / _COST_INDEX_REFERENCE["Turton"]
-            )
-            cost_M = cost / 1e6 * _USD_TO_EUR
+            cost = C_BM * I_current / _COST_INDEX_REFERENCE["Turton"]
+            cost_M = (cost / 1e6) * _USD_TO_EUR
 
             rows.append(
                 {
@@ -136,36 +146,6 @@ def calculate_component_cost(plant):
                     "Type": comp_type,
                     "Basis parameter": "Power [kW]",
                     "Basis value": round(P_kW, 1),
-                    "Cost [M€]": round(cost_M, 3),
-                }
-            )
-
-        if comp_type in ("Tank"):
-            coeffs = _TURTON_COEFFS[comp_type]
-            V_m3 = abs(comp.V.val)
-
-            lower, upper = coeffs["limits"]
-            if not (lower <= V_m3 <= upper):
-                print(
-                    f"Error: {comp.label} volume ({round(V_m3, 1)} m³) is outside "
-                    f"the Turton correlation validity range ({lower}-{upper} m³). "
-                    "The cost below is extrapolated and may not be reliable."
-                )
-
-            log_V = math.log10(V_m3)
-            C_p0 = 10 ** (coeffs["K1"] + coeffs["K2"] * log_V + coeffs["K3"] * log_V**2)
-            C_BM = C_p0 * coeffs["F_BM"]
-            cost = (
-                C_BM * _COST_INDEX_REFERENCE["2025"] / _COST_INDEX_REFERENCE["Turton"]
-            )
-            cost_M = cost / 1e6 * _USD_TO_EUR
-
-            rows.append(
-                {
-                    "Component": comp.label,
-                    "Type": comp_type,
-                    "Basis parameter": "Volume [m³]",
-                    "Basis value": round(V_m3, 1),
                     "Cost [M€]": round(cost_M, 3),
                 }
             )
@@ -179,10 +159,8 @@ def calculate_component_cost(plant):
             area = comp.kA.val / U
 
             C_BM = 5000 + 450 * area**0.82
-            cost = (
-                C_BM * _COST_INDEX_REFERENCE["2025"] / _COST_INDEX_REFERENCE["Morandin"]
-            )
-            cost_M = cost / 1e6 * _USD_TO_EUR
+            cost = C_BM * I_current / _COST_INDEX_REFERENCE["Morandin"]
+            cost_M = (cost / 1e6) * _USD_TO_EUR
 
             rows.append(
                 {
@@ -193,6 +171,37 @@ def calculate_component_cost(plant):
                     "Cost [M€]": round(cost_M, 3),
                 }
             )
+
+    for comp in external_components or []:
+        if comp.__class__.__name__ != "Tank":
+            continue
+
+        coeffs = _TURTON_COEFFS["Tank"]
+        V_m3 = abs(comp.V.val)
+
+        lower, upper = coeffs["limits"]
+        if not (lower <= V_m3 <= upper):
+            print(
+                f"Error: {comp.label} volume ({round(V_m3, 1)} m³) is outside "
+                f"the Turton correlation validity range ({lower}-{upper} m³). "
+                "The cost below is extrapolated and may not be reliable."
+            )
+
+        log_V = math.log10(V_m3)
+        C_p0 = 10 ** (coeffs["K1"] + coeffs["K2"] * log_V + coeffs["K3"] * log_V**2)
+        C_BM = C_p0 * coeffs["F_BM"]
+        cost = C_BM * I_current / _COST_INDEX_REFERENCE["Turton"]
+        cost_M = (cost / 1e6) * _USD_TO_EUR
+
+        rows.append(
+            {
+                "Component": comp.label,
+                "Type": "Tank",
+                "Basis parameter": "Volume [m³]",
+                "Basis value": round(V_m3, 1),
+                "Cost [M€]": round(cost_M, 3),
+            }
+        )
 
     df_cost = pd.DataFrame(rows)
     total_cost = df_cost["Cost [M€]"].sum()

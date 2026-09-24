@@ -4,6 +4,8 @@ src/__init__.py
 Central imports for the src package.
 """
 
+from .geometry import calculate_tanks_geometry
+
 from .input import (
     PLOT_STYLE,
     set_plant_parameters,
@@ -35,6 +37,7 @@ from .exergy_analysis import get_exergy_analysis
 from .network_creator import create_configured_network
 
 __all__ = [
+    "calculate_tanks_geometry",
     "PLOT_STYLE",
     "set_plant_parameters",
     "set_plant_components",
