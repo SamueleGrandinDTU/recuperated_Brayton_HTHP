@@ -1,0 +1,9 @@
+Component,Cost [M€]
+compressor,2.304
+interface hx,0.506
+recuperator,0.927
+sink,0.29
+turbine,1.219
+tank 1,0.09
+tank 2,0.09
+total,5.426

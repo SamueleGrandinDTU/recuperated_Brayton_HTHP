@@ -1,0 +1,6 @@
+Component,Ex_P [MW],Ex_F [MW],Ex_D [MW],ex_eff [%]
+compressor,1.104,1.229,0.125,89.8
+recuperator,0.909,1.003,0.094,90.6
+sink,0.462,0.47,0.008,98.3
+turbine,0.477,0.533,0.056,89.5
+cycle,-,-,0.283,61.4
