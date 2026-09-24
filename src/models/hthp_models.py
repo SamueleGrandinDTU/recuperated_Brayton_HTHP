@@ -100,3 +100,21 @@ class standalone_interc_recup_hthp(hthp_model):
             conn_file="standalone_interc_recup_hthp_connections.json",
             data_file="standalone_interc_recup_hthp_parameters.json",
         )
+
+
+class tes_integr_base_recup_hthp(hthp_model):
+    def __init__(self):
+        super().__init__(
+            comp_file="tes_integr_base_recup_hthp_components.json",
+            conn_file="tes_integr_base_recup_hthp_connections.json",
+            data_file="tes_integr_base_recup_hthp_parameters.json",
+        )
+
+
+class tes_integr_interc_recup_hthp(hthp_model):
+    def __init__(self):
+        super().__init__(
+            comp_file="tes_integr_interc_recup_hthp_components.json",
+            conn_file="tes_integr_interc_recup_hthp_connections.json",
+            data_file="tes_integr_interc_recup_hthp_parameters.json",
+        )
