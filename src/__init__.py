@@ -16,6 +16,7 @@ from .models import (
 )
 
 from .post_processing import (
+    plot_component_cost_stacked,
     plot_exergy_destruction_stacked,
     plot_hx_diagram,
     generate_performance_parameters_table,
@@ -39,6 +40,7 @@ __all__ = [
     "standalone_base_recup_hthp",
     "standalone_base_recup_hthp_Benvenuti",
     "plot_exergy_destruction_stacked",
+    "plot_component_cost_stacked",
     "plot_hx_diagram",
     "generate_performance_parameters_table",
     "generate_sizing_parameters_table",
