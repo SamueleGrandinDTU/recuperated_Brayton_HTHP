@@ -430,21 +430,31 @@ def _calculate_cycle_exergy_efficiency(plant, df_components):
     """
     Calculate overall cycle exergy efficiency.
 
-    cycle_ex_eff = Ex_P (sinks only) / |Net Power|
+    cycle_ex_eff = Ex_P (useful output) / |Net Power|
+
+    The useful output is the "interface hx" component's Ex_P when that
+    component is present; otherwise it is the sum of Ex_P over all heat
+    exchangers labeled "sink" (covering "sink", "sink 1", "sink 2", etc.).
     """
-    he_rows = df_components[
-        (df_components["Type"] == "Heat Exchanger")
-        & (df_components["Component"].str.lower().str.contains("sink"))
+    he_rows = df_components[df_components["Type"] == "Heat Exchanger"]
+
+    interface_rows = he_rows[
+        he_rows["Component"].str.lower().str.contains("interface hx")
     ]
 
-    if he_rows.empty:
-        print(
-            "Warning: No external sink heat exchangers found for cycle efficiency calculation"
-        )
-        return 0.0
+    if not interface_rows.empty:
+        ex_p_total = interface_rows["Ex_P [MW]"].sum()
+    else:
+        sink_rows = he_rows[he_rows["Component"].str.lower().str.contains("sink")]
 
-    # Sum only the sink heat exchanger Ex_P values
-    ex_p_total = he_rows["Ex_P [MW]"].sum()
+        if sink_rows.empty:
+            print(
+                "Warning: No interface hx or sink heat exchangers found for "
+                "cycle efficiency calculation"
+            )
+            return 0.0
+
+        ex_p_total = sink_rows["Ex_P [MW]"].sum()
 
     # Calculate net power from all turbines and compressors
     net_power = 0.0
@@ -463,7 +473,7 @@ def _calculate_cycle_exergy_efficiency(plant, df_components):
     else:
         cycle_ex_eff = 0.0
 
-    return round(cycle_ex_eff, 3)
+    return round(cycle_ex_eff, 4)
 
 
 def _calculate_total_exergy_destruction(df_components):
