@@ -23,6 +23,7 @@ from .models import (
 from .post_processing import (
     plot_component_cost_stacked,
     plot_exergy_destruction_stacked,
+    plot_exergetic_efficiencies,
     plot_hx_diagram,
     save_table_as_csv,
     save_table_as_png,
@@ -51,8 +52,9 @@ __all__ = [
     "standalone_interc_recup_hthp",
     "tes_integr_base_recup_hthp",
     "tes_integr_interc_recup_hthp",
-    "plot_exergy_destruction_stacked",
     "plot_component_cost_stacked",
+    "plot_exergy_destruction_stacked",
+    "plot_exergetic_efficiencies",
     "plot_hx_diagram",
     "save_table_as_csv",
     "save_table_as_png",

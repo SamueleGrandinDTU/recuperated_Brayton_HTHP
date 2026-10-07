@@ -2,7 +2,10 @@
 
 from .cost_plotting import plot_component_cost_stacked
 
-from .exergy_plotting import plot_exergy_destruction_stacked
+from .exergy_plotting import (
+    plot_exergy_destruction_stacked,
+    plot_exergetic_efficiencies,
+)
 
 from .hx_diagram import plot_hx_diagram
 
@@ -21,6 +24,7 @@ from .ts_diagram import plot_ts_diagram
 __all__ = [
     "plot_component_cost_stacked",
     "plot_exergy_destruction_stacked",
+    "plot_exergetic_efficiencies",
     "plot_hx_diagram",
     "save_table_as_csv",
     "save_table_as_png",
