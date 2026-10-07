@@ -4,6 +4,8 @@ src/__init__.py
 Central imports for the src package.
 """
 
+from .geometry import calculate_tanks_geometry
+
 from .input import (
     PLOT_STYLE,
     set_plant_parameters,
@@ -13,14 +15,22 @@ from .input import (
 from .models import (
     standalone_base_recup_hthp,
     standalone_base_recup_hthp_Benvenuti,
+    standalone_interc_recup_hthp,
+    tes_integr_base_recup_hthp,
+    tes_integr_interc_recup_hthp,
 )
 
 from .post_processing import (
     plot_operational_strategy,
+    plot_component_cost_stacked,
     plot_exergy_destruction_stacked,
+    plot_exergetic_efficiencies,
     plot_hx_diagram,
+    save_table_as_csv,
+    save_table_as_png,
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
+    generate_connections_table,
     validate_plant,
     plot_ts_diagram,
 )
@@ -37,6 +47,7 @@ from .plant_operation import (
 )
 
 __all__ = [
+    "calculate_tanks_geometry",
     "PLOT_STYLE",
     "set_plant_parameters",
     "set_plant_components",
@@ -45,10 +56,18 @@ __all__ = [
     "standalone_base_recup_hthp",
     "standalone_base_recup_hthp_Benvenuti",
     "plot_operational_strategy",
+    "standalone_interc_recup_hthp",
+    "tes_integr_base_recup_hthp",
+    "tes_integr_interc_recup_hthp",
+    "plot_component_cost_stacked",
     "plot_exergy_destruction_stacked",
+    "plot_exergetic_efficiencies",
     "plot_hx_diagram",
+    "save_table_as_csv",
+    "save_table_as_png",
     "generate_performance_parameters_table",
     "generate_sizing_parameters_table",
+    "generate_connections_table",
     "validate_plant",
     "plot_ts_diagram",
     "calculate_component_cost",

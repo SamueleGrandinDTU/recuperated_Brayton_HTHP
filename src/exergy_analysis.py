@@ -7,9 +7,19 @@ exergetic efficiency, cycle exergy efficiency and total exergy destruction logic
 import pandas as pd
 from CoolProp.CoolProp import PropsSI
 
+from src import save_table_as_csv, save_table_as_png
 
-def get_exergy_analysis(plant, T_0=None, p_0=None):
+
+def get_exergy_analysis(
+    plant, T_0=None, p_0=None, title_name=None, file_name=None, save_path=None
+):
     """Run the full exergy analysis for a solved plant.
+
+    The component exergy balance (Component, Ex_P, Ex_F, Ex_D, ex_eff [%]),
+    plus a final "Total" row holding the cycle's total exergy destruction and
+    cycle exergy efficiency, is always saved as a CSV when save_path is
+    given. It is also saved as a PNG image, but only when title_name is
+    given.
 
     Parameters
     ----------
@@ -21,6 +31,14 @@ def get_exergy_analysis(plant, T_0=None, p_0=None):
     p_0 : float, optional
         Ambient pressure [bar]. If not given, taken from connection "0";
         if connection "0" does not exist, defaults to 1 bar.
+    title_name : str, optional
+        Title used for the saved PNG table. If None, no PNG is generated.
+    file_name : str, optional
+        Base file name used when saving the table (characteristic extension
+        is added).
+    save_path : str or Path, optional
+        Directory to save the table as CSV / PNG files.
+        If None, nothing is saved to disk.
 
     Returns
     -------
@@ -92,6 +110,25 @@ def get_exergy_analysis(plant, T_0=None, p_0=None):
     print(f"Cycle exergy efficiency (cycle_ex_eff): {cycle_ex_eff*100} %")
     print(f"Total exergy destruction (cycle_Ex_D): {cycle_Ex_D} MW")
     print(f"{'=' * 100}")
+
+    if save_path is not None:
+        if file_name is None:
+            raise ValueError("file_name is required when save_path is given.")
+
+        header = ["Component", "Ex_P [MW]", "Ex_F [MW]", "Ex_D [MW]", "ex_eff [%]"]
+        data_rows = df_display[header].values.tolist()
+        total_row = ["cycle", "-", "-", cycle_Ex_D, round(cycle_ex_eff * 100, 2)]
+        df_exergy_save = pd.DataFrame([header] + data_rows + [total_row])
+
+        save_table_as_csv(df_exergy_save, save_path, f"{file_name}_exergy_components")
+
+        if title_name is not None:
+            save_table_as_png(
+                df_exergy_save,
+                f"{title_name} - Exergy Component Balance",
+                save_path,
+                f"{file_name}_components_exergy",
+            )
 
     return {
         "connections": df_connections,
@@ -430,21 +467,31 @@ def _calculate_cycle_exergy_efficiency(plant, df_components):
     """
     Calculate overall cycle exergy efficiency.
 
-    cycle_ex_eff = Ex_P (sinks only) / |Net Power|
+    cycle_ex_eff = Ex_P (useful output) / |Net Power|
+
+    The useful output is the "interface hx" component's Ex_P when that
+    component is present; otherwise it is the sum of Ex_P over all heat
+    exchangers labeled "sink" (covering "sink", "sink 1", "sink 2", etc.).
     """
-    he_rows = df_components[
-        (df_components["Type"] == "Heat Exchanger")
-        & (df_components["Component"].str.lower().str.contains("sink"))
+    he_rows = df_components[df_components["Type"] == "Heat Exchanger"]
+
+    interface_rows = he_rows[
+        he_rows["Component"].str.lower().str.contains("interface hx")
     ]
 
-    if he_rows.empty:
-        print(
-            "Warning: No external sink heat exchangers found for cycle efficiency calculation"
-        )
-        return 0.0
+    if not interface_rows.empty:
+        ex_p_total = interface_rows["Ex_P [MW]"].sum()
+    else:
+        sink_rows = he_rows[he_rows["Component"].str.lower().str.contains("sink")]
 
-    # Sum only the sink heat exchanger Ex_P values
-    ex_p_total = he_rows["Ex_P [MW]"].sum()
+        if sink_rows.empty:
+            print(
+                "Warning: No interface hx or sink heat exchangers found for "
+                "cycle efficiency calculation"
+            )
+            return 0.0
+
+        ex_p_total = sink_rows["Ex_P [MW]"].sum()
 
     # Calculate net power from all turbines and compressors
     net_power = 0.0
@@ -463,7 +510,7 @@ def _calculate_cycle_exergy_efficiency(plant, df_components):
     else:
         cycle_ex_eff = 0.0
 
-    return round(cycle_ex_eff, 3)
+    return round(cycle_ex_eff, 4)
 
 
 def _calculate_total_exergy_destruction(df_components):

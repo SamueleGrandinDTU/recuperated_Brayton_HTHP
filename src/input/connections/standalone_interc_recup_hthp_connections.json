@@ -1,0 +1,13 @@
+[
+  {"label": "0", "source": "inlet", "source_id": "out1", "target": "recuperator", "target_id": "in2"},
+  {"label": "1", "source": "recuperator", "source_id": "out2", "target": "compressor 1", "target_id": "in1"},
+  {"label": "2", "source": "compressor 1", "source_id": "out1", "target": "sink 1", "target_id": "in1"},
+  {"label": "2i", "source": "sink 1", "source_id": "out1", "target": "compressor 2", "target_id": "in1"},
+  {"label": "3i", "source": "compressor 2", "source_id": "out1", "target": "sink 2", "target_id": "in1"},
+  {"label": "3", "source": "sink 2", "source_id": "out1", "target": "recuperator", "target_id": "in1"},
+  {"label": "4", "source": "recuperator", "source_id": "out1", "target": "turbine", "target_id": "in1"},
+  {"label": "5", "source": "turbine", "source_id": "out1", "target": "outlet", "target_id": "in1"},
+  {"label": "t1", "source": "industrial inlet", "source_id": "out1", "target": "sink 2", "target_id": "in2"},
+  {"label": "t1i", "source": "sink 2", "source_id": "out2", "target": "sink 1", "target_id": "in2"},
+  {"label": "t2", "source": "sink 1", "source_id": "out2", "target": "industrial outlet", "target_id": "in1"}
+]
