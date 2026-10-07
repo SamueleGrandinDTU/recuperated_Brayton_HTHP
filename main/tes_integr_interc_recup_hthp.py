@@ -23,6 +23,7 @@ from src import (
     get_exergy_analysis,
     calculate_component_cost,
     calculate_tanks_geometry,
+    optimize_operational_strategy,
 )
 
 # 1. Solve the simulation in the design condition
@@ -83,4 +84,12 @@ calculate_component_cost(
     [tank1, tank2],
     file_name="tes_integr_interc_recup_hthp",
     save_path="results/tables/components_cost",
+)
+
+# 7. Optimize the operational strategy and plot the results
+result = optimize_operational_strategy(
+    plant_tes_integr_interc_recup_hthp,
+    E_TES=8.0,
+    market="DK1",
+    year=2025,
 )

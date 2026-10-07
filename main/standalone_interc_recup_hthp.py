@@ -22,6 +22,8 @@ from src import (
     generate_connections_table,
     get_exergy_analysis,
     calculate_component_cost,
+    optimize_operational_strategy,
+    plot_operational_strategy,
 )
 
 # 1. Set and solve the simulation
@@ -79,4 +81,12 @@ component_cost = calculate_component_cost(
     plant_standalone_interc_recup,
     file_name="standalone_interc_recup_hthp",
     save_path="results/tables/components_cost",
+)
+
+# 7. Optimize the operational strategy and plot the results (no TES)
+result = optimize_operational_strategy(
+    plant_standalone_interc_recup,
+    E_TES=0.0,
+    market="DK1",
+    year=2025,
 )
