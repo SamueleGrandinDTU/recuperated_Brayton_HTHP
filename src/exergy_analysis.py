@@ -7,9 +7,19 @@ exergetic efficiency, cycle exergy efficiency and total exergy destruction logic
 import pandas as pd
 from CoolProp.CoolProp import PropsSI
 
+from src import save_table_as_csv, save_table_as_png
 
-def get_exergy_analysis(plant, T_0=None, p_0=None):
+
+def get_exergy_analysis(
+    plant, T_0=None, p_0=None, title_name=None, file_name=None, save_path=None
+):
     """Run the full exergy analysis for a solved plant.
+
+    The component exergy balance (Component, Ex_P, Ex_F, Ex_D, ex_eff [%]),
+    plus a final "Total" row holding the cycle's total exergy destruction and
+    cycle exergy efficiency, is always saved as a CSV when save_path is
+    given. It is also saved as a PNG image, but only when title_name is
+    given.
 
     Parameters
     ----------
@@ -21,6 +31,14 @@ def get_exergy_analysis(plant, T_0=None, p_0=None):
     p_0 : float, optional
         Ambient pressure [bar]. If not given, taken from connection "0";
         if connection "0" does not exist, defaults to 1 bar.
+    title_name : str, optional
+        Title used for the saved PNG table. If None, no PNG is generated.
+    file_name : str, optional
+        Base file name used when saving the table (characteristic extension
+        is added).
+    save_path : str or Path, optional
+        Directory to save the table as CSV / PNG files.
+        If None, nothing is saved to disk.
 
     Returns
     -------
@@ -92,6 +110,25 @@ def get_exergy_analysis(plant, T_0=None, p_0=None):
     print(f"Cycle exergy efficiency (cycle_ex_eff): {cycle_ex_eff*100} %")
     print(f"Total exergy destruction (cycle_Ex_D): {cycle_Ex_D} MW")
     print(f"{'=' * 100}")
+
+    if save_path is not None:
+        if file_name is None:
+            raise ValueError("file_name is required when save_path is given.")
+
+        header = ["Component", "Ex_P [MW]", "Ex_F [MW]", "Ex_D [MW]", "ex_eff [%]"]
+        data_rows = df_display[header].values.tolist()
+        total_row = ["cycle", "-", "-", cycle_Ex_D, round(cycle_ex_eff * 100, 2)]
+        df_exergy_save = pd.DataFrame([header] + data_rows + [total_row])
+
+        save_table_as_csv(df_exergy_save, save_path, f"{file_name}_exergy_components")
+
+        if title_name is not None:
+            save_table_as_png(
+                df_exergy_save,
+                f"{title_name} - Exergy Component Balance",
+                save_path,
+                f"{file_name}_components_exergy",
+            )
 
     return {
         "connections": df_connections,

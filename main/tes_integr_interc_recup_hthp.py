@@ -19,6 +19,7 @@ from src import (
     plot_hx_diagram,
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
+    generate_connections_table,
     get_exergy_analysis,
     calculate_component_cost,
     calculate_tanks_geometry,
@@ -49,17 +50,27 @@ plot_hx_diagram(
 generate_performance_parameters_table(
     plant_tes_integr_interc_recup_hthp,
     file_name="tes_integr_interc_recup_hthp",
-    save_path="results/tables",
+    save_path="results/tables/performance_parameters",
 )
 
 generate_sizing_parameters_table(
     plant_tes_integr_interc_recup_hthp,
     file_name="tes_integr_interc_recup_hthp",
-    save_path="results/tables",
+    save_path="results/tables/sizing_parameters",
+)
+
+generate_connections_table(
+    plant_tes_integr_interc_recup_hthp,
+    file_name="tes_integr_interc_recup_hthp",
+    save_path="results/tables/connections",
 )
 
 # 4. Perform exergy analysis, generate the exergy analysis table
-exergy_results = get_exergy_analysis(plant_tes_integr_interc_recup_hthp)
+exergy_results = get_exergy_analysis(
+    plant_tes_integr_interc_recup_hthp,
+    file_name="tes_integr_interc_recup_hthp",
+    save_path="results/tables/components_exergy",
+)
 
 # 5. Calculate the TES tank geometry
 tank1, tank2 = calculate_tanks_geometry(
@@ -67,4 +78,9 @@ tank1, tank2 = calculate_tanks_geometry(
 )
 
 # 6. Estimate the component costs
-calculate_component_cost(plant_tes_integr_interc_recup_hthp, [tank1, tank2])
+calculate_component_cost(
+    plant_tes_integr_interc_recup_hthp,
+    [tank1, tank2],
+    file_name="tes_integr_interc_recup_hthp",
+    save_path="results/tables/components_cost",
+)

@@ -20,8 +20,8 @@ from src import (
     plot_hx_diagram,
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
+    generate_connections_table,
     get_exergy_analysis,
-    plot_exergy_destruction_stacked,
     validate_plant,
     calculate_component_cost,
     plot_component_cost_stacked,
@@ -71,20 +71,35 @@ plot_hx_diagram(
 generate_performance_parameters_table(
     plant_standalone_base_recup,
     file_name="standalone_base_recup_hthp",
-    save_path="results/tables",
+    save_path="results/tables/performance_parameters",
 )
 
 generate_sizing_parameters_table(
     plant_standalone_base_recup,
     file_name="standalone_base_recup_hthp",
-    save_path="results/tables",
+    save_path="results/tables/sizing_parameters",
+)
+
+generate_connections_table(
+    plant_standalone_base_recup,
+    file_name="standalone_base_recup_hthp",
+    save_path="results/tables/connections",
 )
 
 # 5. Perform exergy analysis, generate the exergy analysis table
-exergy_results = get_exergy_analysis(plant_standalone_base_recup)
+exergy_results = get_exergy_analysis(
+    plant_standalone_base_recup,
+    file_name="standalone_base_recup_hthp",
+    save_path="results/tables/components_exergy",
+)
 
 # 6. Estimate the component costs and plot the component cost stacked bar chart
-component_cost = calculate_component_cost(plant_standalone_base_recup)
+component_cost = calculate_component_cost(
+    plant_standalone_base_recup,
+    file_name="standalone_base_recup_hthp",
+    save_path="results/tables/components_cost",
+)
+
 plot_component_cost_stacked(
     component_cost,
     save_path="results/plots",

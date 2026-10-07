@@ -1,4 +1,4 @@
-Component,ε [-],UA [kW/K],ΔT_LMTD [K],pr [-],V̇ [m³/s]
+Component,eff [-],UA [kW/K],DT_LMTD [K],pr [-],VV [m^3/s]
 recuperator,0.94,264.0,13.6,-,-
 sink,0.89,118.9,8.4,-,-
 compressor,-,-,-,1.48,23.91

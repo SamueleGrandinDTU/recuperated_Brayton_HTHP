@@ -11,6 +11,8 @@ import math
 
 import pandas as pd
 
+from src import save_table_as_csv, save_table_as_png
+
 # Turton correlation coefficients: Cp0 = 10^(K1 + K2*log10(P) + K3*log10(P)^2),
 # P in kW. C_BM = Cp0 * F_BM. "limits" are the correlation's validated power
 # range in kW.
@@ -59,7 +61,14 @@ _HX_U_VALUES = {
 _USD_TO_EUR = 0.92
 
 
-def calculate_component_cost(plant, external_components=None, I_current=800):
+def calculate_component_cost(
+    plant,
+    external_components=None,
+    I_current=800,
+    title_name=None,
+    file_name=None,
+    save_path=None,
+):
     """Estimate and print the cost of the plant's compressors, turbines and
     heat exchangers, plus any TES tanks passed in separately.
 
@@ -91,6 +100,17 @@ def calculate_component_cost(plant, external_components=None, I_current=800):
         anything else in the list is ignored.
     I_current : float, optional
         Current cost index (CEPCI). Default 800 (2025).
+    title_name : str, optional
+        Title used for the saved PNG table. If None, no PNG is generated.
+    file_name : str, optional
+        Base file name used when saving the table (characteristic extension
+        is added).
+    save_path : str or Path, optional
+        Directory to save the table as CSV / PNG files.
+        If None, nothing is saved to disk. The saved table is a simplified
+        (Component, Cost [M€]) view with a final "Total" row, distinct from
+        the full (Component, Type, Basis parameter, Basis value, Cost [M€])
+        table this function returns.
 
     Returns
     -------
@@ -213,5 +233,24 @@ def calculate_component_cost(plant, external_components=None, I_current=800):
     print(f"{'=' * 100}")
     print(f"Total plant cost: {round(total_cost, 3)} M€")
     print(f"{'=' * 100}")
+
+    if save_path is not None:
+        if file_name is None:
+            raise ValueError("file_name is required when save_path is given.")
+
+        header = ["Component", "Cost [M€]"]
+        data_rows = df_cost[header].values.tolist()
+        total_row = ["total", round(total_cost, 3)]
+        df_cost_save = pd.DataFrame([header] + data_rows + [total_row])
+
+        save_table_as_csv(df_cost_save, save_path, f"{file_name}_components_cost")
+
+        if title_name is not None:
+            save_table_as_png(
+                df_cost_save,
+                f"{title_name} - Components Cost",
+                save_path,
+                f"{file_name}_components_cost",
+            )
 
     return df_cost

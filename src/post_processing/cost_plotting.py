@@ -1,9 +1,10 @@
-"""Cost plotting for the standalone base recuperated HTHP."""
+"""Cost plotting, comparable across one or several cycles."""
 
 import textwrap
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from src import PLOT_STYLE
@@ -26,35 +27,61 @@ _COMPONENT_COLORS = {c: color for c, color in _COMPONENT_COLOR_ORDER}
 _CYCLE_LABEL = "Standalone Base Recuperated"
 _WRAP_WIDTH = 14
 
+# Component labels used for a cycle-level summary row (e.g. the "total" row
+# appended by calculate_component_cost's CSV export): excluded from the
+# stacked bars, since it duplicates the sum of the real component rows
+# rather than being an additional component.
+_SUMMARY_ROW_LABELS = {"cycle", "total"}
+
+
+def _load_dataframe(item):
+    """Accept either a DataFrame or a path to a CSV saved by
+    calculate_component_cost (or any table with a "Component" column) and
+    return a DataFrame either way, with the cycle-level summary row removed.
+    """
+    df = pd.read_csv(item) if isinstance(item, (str, Path)) else item
+
+    if df is None or df.empty or "Component" not in df.columns:
+        return df
+
+    return df[~df["Component"].astype(str).str.lower().isin(_SUMMARY_ROW_LABELS)]
+
 
 def _normalize_input(data):
-    """Convert single DataFrame or list of DataFrames to list."""
+    """Convert a single DataFrame/CSV path, or a list of them, into a list
+    of DataFrames (loading any CSV paths, and dropping summary rows)."""
     if data is None:
         return None
-    if isinstance(data, list):
-        return data
-    else:
-        return [data]
+    items = data if isinstance(data, list) else [data]
+    return [_load_dataframe(item) for item in items]
 
 
 def plot_component_cost_stacked(
     component_cost,
+    cycle_labels=None,
     save_path=None,
     file_name=None,
 ):
     """
-    Plot component cost as a single stacked bar for the standalone base
-    recuperated cycle. Component stacking order and colors follow a fixed,
-    predefined scheme so they stay consistent
-    across figures.
+    Plot component cost as one stacked bar per cycle. Component stacking
+    order and colors follow a fixed, predefined scheme so they stay
+    consistent across figures.
 
     Parameters
     ----------
-    component_cost : pd.DataFrame
-        The cost table from calculate_component_cost.
+    component_cost : pd.DataFrame, str/Path, or list of either
+        The cost table from calculate_component_cost, or the path to a CSV
+        it saved (its trailing cycle-level summary row, if present, is
+        dropped automatically). Pass a list to plot several cycles side by
+        side, one bar each.
+    cycle_labels : list of str, optional
+        One label per cycle, in the same order as `component_cost`, used as
+        the x-axis tick labels. If not given, cycles are labeled "Cycle 1",
+        "Cycle 2", etc. — except for a single cycle, which falls back to the
+        fixed _CYCLE_LABEL for backward compatibility.
     save_path : str or Path, optional
         Directory to save the figure.
-    file_name : str, default "component_cost_stacked"
+    file_name : str, optional
         Base name for the saved file.
 
     Returns
@@ -65,6 +92,18 @@ def plot_component_cost_stacked(
     if df_list is None or all(df.empty for df in df_list):
         print("Warning: No data provided")
         return None, None
+
+    if cycle_labels is None:
+        cycle_labels = (
+            [_CYCLE_LABEL]
+            if len(df_list) == 1
+            else [f"Cycle {i + 1}" for i in range(len(df_list))]
+        )
+    if len(cycle_labels) != len(df_list):
+        raise ValueError(
+            f"cycle_labels has {len(cycle_labels)} entries but "
+            f"{len(df_list)} cycles were given."
+        )
 
     cost_col = None
     for df in df_list:
@@ -100,7 +139,6 @@ def plot_component_cost_stacked(
             colors[comp] = extra_cmap(extra_idx % 10)
             extra_idx += 1
 
-    cycle_labels = [_CYCLE_LABEL]
     wrapped_labels = [textwrap.fill(lbl, width=_WRAP_WIDTH) for lbl in cycle_labels]
 
     x = np.arange(len(df_list))
@@ -121,7 +159,7 @@ def plot_component_cost_stacked(
             x,
             values,
             bottom=bottoms,
-            width=0.4,
+            width=0.6,
             label=comp,
             color=colors[comp],
             edgecolor=PLOT_STYLE["colors"]["edge"],
@@ -138,17 +176,19 @@ def plot_component_cost_stacked(
         wrapped_labels,
         ha="center",
         rotation=0,
-        fontsize=PLOT_STYLE["fonts"]["tick"],
+        fontsize=PLOT_STYLE["fonts"]["small_label"],
     )
-    ax.set_xlim(-1, 1)
+    # Scales to however many cycles are being compared, instead of the fixed
+    # (-1, 1) that only ever fit a single bar.
+    ax.set_xlim(-0.75, len(df_list) - 1 + 0.75)
 
     # Legend on the right, outside the plot area
     ax.legend(
         fontsize=PLOT_STYLE["fonts"]["legend"],
         framealpha=0.95,
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        ncol=1,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=min(len(ordered_components), 4),
     )
 
     ax.grid(

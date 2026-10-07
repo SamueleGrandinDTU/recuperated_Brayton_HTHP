@@ -1,0 +1,8 @@
+Component,Cost [M€]
+compressor 1,1.871
+compressor 2,0.618
+recuperator,0.722
+sink 1,0.094
+sink 2,0.141
+turbine,1.177
+total,4.623

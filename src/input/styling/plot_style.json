@@ -28,7 +28,8 @@
     "value": 11,
     "legend": 9,
     "tick": 12,
-    "isoline": 10
+    "isoline": 10,
+    "small_label": 7
   },
 
   "layout": {

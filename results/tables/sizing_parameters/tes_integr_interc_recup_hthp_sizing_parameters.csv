@@ -1,4 +1,4 @@
-Component,ε [-],UA [kW/K],ΔT_LMTD [K],pr [-],V̇ [m³/s]
+Component,eff [-],UA [kW/K],DT_LMTD [K],pr [-],VV [m^3/s]
 interface hx,0.89,118.9,8.4,-,-
 recuperator,0.94,175.3,14.1,-,-
 sink 1,0.8,29.8,10.1,-,-

@@ -1,10 +1,14 @@
-"""Exergy plotting for the standalone base recuperated HTHP."""
+"""Exergy plotting, comparable across one or several cycles."""
 
+import math
+import re
 import textwrap
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 from src import PLOT_STYLE
 
@@ -23,57 +27,97 @@ _COMPONENT_COLOR_ORDER = [
 _COMPONENT_ORDER = [c for c, _ in _COMPONENT_COLOR_ORDER]
 _COMPONENT_COLORS = {c: color for c, color in _COMPONENT_COLOR_ORDER}
 
+# Cycle colors for plot_exergetic_efficiencies (where color encodes the
+# cycle rather than the component), for this project's current 4-cycle
+# comparison: a cycle whose label mentions "intercooled" gets a shade of red
+# (matching the sink family's colors above); any other cycle (i.e. a "base"
+# one) gets a shade of blue (matching the compressor family's colors above).
+# Within each group, cycles are assigned shades in the order encountered, so
+# e.g. the first base cycle gets blue and the second gets light blue.
+_CYCLE_BASE_COLORS = ["#3182bd", "#9ecae1"]  # blue, light blue
+_CYCLE_INTERCOOLED_COLORS = ["#de2d26", "#fc9272"]  # red, light red
+
+
+def _assign_cycle_colors(cycle_labels):
+    """Assign one color per cycle label: shades of red for a label
+    mentioning "intercooled", shades of blue otherwise, falling back to
+    tab10 once a group's fixed shades (2 each) run out.
+    """
+    extra_cmap = plt.cm.tab10
+    base_idx = 0
+    intercooled_idx = 0
+    extra_idx = 0
+    colors = []
+
+    for label in cycle_labels:
+        is_intercooled = "interc" in str(label).lower()
+        palette = _CYCLE_INTERCOOLED_COLORS if is_intercooled else _CYCLE_BASE_COLORS
+        idx = intercooled_idx if is_intercooled else base_idx
+
+        if idx < len(palette):
+            colors.append(palette[idx])
+        else:
+            colors.append(extra_cmap(extra_idx % 10))
+            extra_idx += 1
+
+        if is_intercooled:
+            intercooled_idx += 1
+        else:
+            base_idx += 1
+
+    return colors
+
+
 _CYCLE_LABEL = "Standalone Base Recuperated"
 _WRAP_WIDTH = 14
 
+# Component labels used for a cycle-level summary row (e.g. the "cycle" row
+# appended by get_exergy_analysis's CSV export): excluded from the stacked
+# bars, since it duplicates the sum of the real component rows rather than
+# being an additional component.
+_SUMMARY_ROW_LABELS = {"cycle", "total"}
+
+
+def _load_dataframe(item):
+    """Accept either a DataFrame or a path to a CSV saved by
+    get_exergy_analysis (or any table with a "Component" column) and return
+    a DataFrame either way, with the cycle-level summary row removed.
+    """
+    df = pd.read_csv(item) if isinstance(item, (str, Path)) else item
+
+    if df is None or df.empty or "Component" not in df.columns:
+        return df
+
+    return df[~df["Component"].astype(str).str.lower().isin(_SUMMARY_ROW_LABELS)]
+
 
 def _normalize_input(data):
-    """Convert single DataFrame or list of DataFrames to list."""
+    """Convert a single DataFrame/CSV path, or a list of them, into a list
+    of DataFrames (loading any CSV paths, and dropping summary rows)."""
     if data is None:
         return None
-    if isinstance(data, list):
-        return data
-    else:
-        return [data]
+    items = data if isinstance(data, list) else [data]
+    return [_load_dataframe(item) for item in items]
 
 
-def plot_exergy_destruction_stacked(
-    exergy_destruction,
-    save_path=None,
-    file_name=None,
-):
-    """
-    Plot exergy destruction as a single stacked bar for the standalone base
-    recuperated cycle. Component stacking order and colors follow a fixed,
-    predefined scheme so they stay consistent
-    across figures.
+def _resolve_cycle_labels(df_list, cycle_labels):
+    if cycle_labels is None:
+        cycle_labels = (
+            [_CYCLE_LABEL]
+            if len(df_list) == 1
+            else [f"Cycle {i + 1}" for i in range(len(df_list))]
+        )
+    if len(cycle_labels) != len(df_list):
+        raise ValueError(
+            f"cycle_labels has {len(cycle_labels)} entries but "
+            f"{len(df_list)} cycles were given."
+        )
+    return cycle_labels
 
-    Parameters
-    ----------
-    exergy_destruction : pd.DataFrame
-        The "components" DataFrame from the exergy analysis.
-    save_path : str or Path, optional
-        Directory to save the figure.
-    file_name : str, default "exergy_destruction_stacked"
-        Base name for the saved file.
 
-    Returns
-    -------
-    fig, ax
-    """
-    df_list = _normalize_input(exergy_destruction)
-    if df_list is None or all(df.empty for df in df_list):
-        print("Warning: No data provided")
-        return None, None
-
-    e_d_col = None
-    for df in df_list:
-        if not df.empty:
-            e_d_col = [c for c in df.columns if "D" in c and "MW" in c][0]
-            break
-
-    # Components actually present, ordered per the fixed scheme;
-    # anything not in the scheme is appended (sorted) with a fallback color.
+def _ordered_components_present(df_list):
+    """Components actually present, ordered per the fixed scheme; anything
+    not in the scheme is appended (sorted)."""
     present = {comp for df in df_list for comp in df["Component"].values}
     ordered_components = [
         c
@@ -89,6 +133,56 @@ def plot_exergy_destruction_stacked(
     leftover = sorted(present - set(ordered_components))
     ordered_components += leftover
 
+    return ordered_components
+
+
+def plot_exergy_destruction_stacked(
+    exergy_destruction,
+    cycle_labels=None,
+    save_path=None,
+    file_name=None,
+):
+    """
+    Plot exergy destruction as one stacked bar per cycle. Component stacking
+    order and colors follow a fixed, predefined scheme so they stay
+    consistent across figures.
+
+    Parameters
+    ----------
+    exergy_destruction : pd.DataFrame, str/Path, or list of either
+        The "components" DataFrame from the exergy analysis, or the path to
+        a CSV saved by get_exergy_analysis (its trailing cycle-level summary
+        row, if present, is dropped automatically). Pass a list to plot
+        several cycles side by side, one bar each.
+    cycle_labels : list of str, optional
+        One label per cycle, in the same order as `exergy_destruction`, used
+        as the x-axis tick labels. If not given, cycles are labeled "Cycle
+        1", "Cycle 2", etc. — except for a single cycle, which falls back to
+        the fixed _CYCLE_LABEL for backward compatibility.
+    save_path : str or Path, optional
+        Directory to save the figure.
+    file_name : str, optional
+        Base name for the saved file.
+
+    Returns
+    -------
+    fig, ax
+    """
+    df_list = _normalize_input(exergy_destruction)
+    if df_list is None or all(df.empty for df in df_list):
+        print("Warning: No data provided")
+        return None, None
+
+    cycle_labels = _resolve_cycle_labels(df_list, cycle_labels)
+
+    e_d_col = None
+    for df in df_list:
+        if not df.empty:
+            e_d_col = [c for c in df.columns if "D" in c and "MW" in c][0]
+            break
+
+    ordered_components = _ordered_components_present(df_list)
+
     extra_cmap = plt.cm.tab10
     colors = {}
     extra_idx = 0
@@ -100,7 +194,6 @@ def plot_exergy_destruction_stacked(
             colors[comp] = extra_cmap(extra_idx % 10)
             extra_idx += 1
 
-    cycle_labels = [_CYCLE_LABEL]
     wrapped_labels = [textwrap.fill(lbl, width=_WRAP_WIDTH) for lbl in cycle_labels]
 
     x = np.arange(len(df_list))
@@ -121,7 +214,7 @@ def plot_exergy_destruction_stacked(
             x,
             values,
             bottom=bottoms,
-            width=0.4,
+            width=0.6,
             label=comp,
             color=colors[comp],
             edgecolor=PLOT_STYLE["colors"]["edge"],
@@ -138,17 +231,19 @@ def plot_exergy_destruction_stacked(
         wrapped_labels,
         ha="center",
         rotation=0,
-        fontsize=PLOT_STYLE["fonts"]["tick"],
+        fontsize=PLOT_STYLE["fonts"]["small_label"],
     )
-    ax.set_xlim(-1, 1)
+    # Scales to however many cycles are being compared, instead of the fixed
+    # (-1, 1) that only ever fit a single bar.
+    ax.set_xlim(-0.75, len(df_list) - 1 + 0.75)
 
-    # Legend on the right, outside the plot area
+    # Legend on top, above the plot area
     ax.legend(
         fontsize=PLOT_STYLE["fonts"]["legend"],
         framealpha=0.95,
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        ncol=1,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=min(len(ordered_components), 4),
     )
 
     ax.grid(
@@ -186,5 +281,191 @@ def plot_exergy_destruction_stacked(
             facecolor=PLOT_STYLE["figure"]["facecolor"],
         )
         print(f"✓ Figure saved: {save_path / f'{file_name}_exergy_stacked.png'}")
+
+    return fig, ax
+
+
+def plot_exergetic_efficiencies(
+    exergy_destruction,
+    cycle_labels=None,
+    save_path=None,
+    file_name=None,
+):
+    """
+    Plot each component's exergetic efficiency as a grouped bar chart: one
+    group per component (compressor, compressor 1, compressor 2, turbine,
+    recuperator, sink, ...), in the fixed component order/grouping used
+    elsewhere in this module, with one bar per cycle inside each group.
+    Unlike the stacked plots, color here encodes the cycle, not the
+    component, so the same cycle keeps the same color across every group.
+
+    Parameters
+    ----------
+    exergy_destruction : pd.DataFrame, str/Path, or list of either
+        The "components" DataFrame from the exergy analysis (must include an
+        exergetic efficiency column, e.g. "ex_eff [%]"), or the path to a CSV
+        saved by get_exergy_analysis. Pass a list to compare several cycles.
+    cycle_labels : list of str, optional
+        One label per cycle, in the same order as `exergy_destruction`, used
+        for the legend and bar colors. If not given, cycles are labeled
+        "Cycle 1", "Cycle 2", etc.
+    save_path : str or Path, optional
+        Directory to save the figure.
+    file_name : str, optional
+        Base name for the saved file.
+
+    Returns
+    -------
+    fig, ax
+    """
+    df_list = _normalize_input(exergy_destruction)
+    if df_list is None or all(df.empty for df in df_list):
+        print("Warning: No data provided")
+        return None, None
+
+    cycle_labels = _resolve_cycle_labels(df_list, cycle_labels)
+
+    eff_col = None
+    for df in df_list:
+        if not df.empty:
+            eff_col = [c for c in df.columns if "eff" in c.lower()][0]
+            break
+
+    if eff_col is None:
+        print("Warning: No exergetic efficiency column found")
+        return None, None
+
+    ordered_components = _ordered_components_present(df_list)
+
+    cycle_colors = _assign_cycle_colors(cycle_labels)
+
+    n_components = len(ordered_components)
+    n_cycles = len(df_list)
+    group_width = 0.8
+    # Fixed across every group, so a group with fewer cycles present (e.g.
+    # "compressor", missing from intercooled cycles) just occupies less
+    # total width rather than stretching its bars to fill the same space a
+    # fully-populated group (like "turbine") does.
+    bar_width = group_width / n_cycles
+
+    # Family key groups "compressor"/"compressor 1"/"compressor 2" (etc.)
+    # together by stripping a trailing " <number>", so a family boundary can
+    # be detected and given extra spacing (compressor family -> turbine,
+    # turbine -> sink family, sink family -> recuperator, ...).
+    family_keys = [
+        re.sub(r"\s*\d+$", "", comp).strip().lower() for comp in ordered_components
+    ]
+
+    family_gap = 0.6
+    positions = [0.0]
+    for k in range(1, n_components):
+        step = 1.0 + (family_gap if family_keys[k] != family_keys[k - 1] else 0.0)
+        positions.append(positions[-1] + step)
+    x_groups = np.array(positions)
+
+    fig, ax = plt.subplots(
+        figsize=PLOT_STYLE["figure"]["figsize"], dpi=PLOT_STYLE["figure"]["dpi"]
+    )
+
+    # Each group packs only the cycles that actually have that component, so
+    # the bars sit flush against each other with no reserved (empty) slots
+    # for cycles that don't — e.g. "compressor" has no bar for an
+    # intercooled cycle (which uses "compressor 1"/"compressor 2" instead),
+    # so that group packs just the cycles that do have it, centered, using
+    # the same fixed bar width as every other group.
+    for comp_idx, comp in enumerate(ordered_components):
+        present = [
+            (i, df[df["Component"] == comp][eff_col].values[0])
+            for i, df in enumerate(df_list)
+            if not df[df["Component"] == comp].empty
+        ]
+        if not present:
+            continue
+
+        n_present = len(present)
+
+        for j, (i, value) in enumerate(present):
+            offset = (j - (n_present - 1) / 2) * bar_width
+            ax.bar(
+                x_groups[comp_idx] + offset,
+                value,
+                width=bar_width,
+                color=cycle_colors[i],
+                edgecolor=PLOT_STYLE["colors"]["edge"],
+                linewidth=PLOT_STYLE["lines_and_markers"]["linewidth"],
+                alpha=0.85,
+            )
+
+    # Legend handles built explicitly (one per cycle) since a cycle may not
+    # have a real bar in every group to attach a "label=" to.
+    legend_handles = [
+        mpatches.Patch(
+            facecolor=cycle_colors[i],
+            edgecolor=PLOT_STYLE["colors"]["edge"],
+            label=cycle_labels[i],
+        )
+        for i in range(n_cycles)
+    ]
+
+    ax.set_ylabel(r"Exergetic Efficiency [%]", fontsize=PLOT_STYLE["fonts"]["label"])
+    ax.set_xlabel(r"Component", fontsize=PLOT_STYLE["fonts"]["label"])
+
+    ax.set_xticks(x_groups)
+    ax.set_xticklabels(
+        ordered_components,
+        ha="right",
+        rotation=45,
+        rotation_mode="anchor",
+        fontsize=PLOT_STYLE["fonts"]["small_label"],
+    )
+    ax.set_xlim(x_groups[0] - 0.5, x_groups[-1] + 0.5)
+
+    # Legend on top, above the plot area, wrapped onto two rows.
+    ax.legend(
+        handles=legend_handles,
+        fontsize=PLOT_STYLE["fonts"]["legend"],
+        framealpha=0.95,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=math.ceil(n_cycles / 2),
+    )
+
+    ax.grid(
+        axis="y",
+        alpha=PLOT_STYLE["grid"]["alpha"],
+        linestyle="--",
+        linewidth=PLOT_STYLE["grid"]["linewidth"],
+    )
+    ax.set_axisbelow(True)
+
+    for spine in ax.spines.values():
+        spine.set_color(PLOT_STYLE["axes"]["spine_color"])
+        spine.set_linewidth(PLOT_STYLE["axes"]["spine_linewidth"])
+
+    ax.tick_params(
+        axis=PLOT_STYLE["ticks"]["axis"],
+        pad=PLOT_STYLE["ticks"]["pad"],
+        which=PLOT_STYLE["ticks"]["which"],
+        color=PLOT_STYLE["ticks"]["color"],
+        labelcolor=PLOT_STYLE["ticks"]["labelcolor"],
+        direction=PLOT_STYLE["ticks"]["direction"],
+    )
+
+    ax.set_box_aspect(PLOT_STYLE["axes"]["box_aspect"])
+    ax.set_facecolor(PLOT_STYLE["axes"]["facecolor"])
+    fig.patch.set_facecolor(PLOT_STYLE["figure"]["facecolor"])
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.mkdir(parents=True, exist_ok=True)
+        fig.savefig(
+            save_path / f"{file_name}_exergetic_efficiencies.png",
+            dpi=PLOT_STYLE["figure"]["dpi"],
+            bbox_inches="tight",
+            facecolor=PLOT_STYLE["figure"]["facecolor"],
+        )
+        print(
+            f"✓ Figure saved: {save_path / f'{file_name}_exergetic_efficiencies.png'}"
+        )
 
     return fig, ax
