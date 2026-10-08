@@ -1,7 +1,8 @@
 """
-economic_plotting.py
+src/plotting.py
 
 Plotting helpers for the results of ``plant_operation.optimize_operational_strategy``.
+
 
 """
 
@@ -9,7 +10,6 @@ from pathlib import Path
 from typing import Optional, Union
 
 import matplotlib.pyplot as plt
-
 
 from src import PLOT_STYLE
 
@@ -61,6 +61,7 @@ def _style_axes(ax) -> None:
 
 def plot_operational_strategy(
     result,
+    file_name: Optional[str] = None,
     save_path: Optional[Union[str, Path]] = None,
 ):
     """Plot price, demand, HTHP schedule and TES state of charge for one
@@ -72,9 +73,13 @@ def plot_operational_strategy(
         The object returned by ``optimize_operational_strategy``. Only
         its attributes are used (time, el_price, Q_demand, Q_HTHP,
         E_TES, plant, market) - no import of that class is needed here.
+    file_name : str, optional
+        Name of the plant configuration, e.g. "standalone_base_recup_hthp".
+        The figure is saved as ``<file_name>_operational_strategy.png``.
+        Required when `save_path` is given.
     save_path : str | Path, optional
-        If given, the figure is saved there (dpi and facecolor per
-        ``PLOT_STYLE["figure"]``).
+        Directory the figure is saved in (created if missing; dpi and
+        facecolor per ``PLOT_STYLE["figure"]``). If None, nothing is saved.
 
     Returns
     -------
@@ -152,11 +157,16 @@ def plot_operational_strategy(
     fig.tight_layout()
 
     if save_path is not None:
+        if file_name is None:
+            raise ValueError("`file_name` is required when `save_path` is given.")
+        save_path = Path(save_path)
+        save_path.mkdir(parents=True, exist_ok=True)
         fig.savefig(
-            save_path,
+            save_path / f"{file_name}_operational_strategy.png",
             dpi=PLOT_STYLE["figure"]["dpi"],
             bbox_inches="tight",
             facecolor=PLOT_STYLE["figure"]["facecolor"],
         )
+        print(f"✓ Figure saved: {save_path / f'{file_name}_operational_strategy.png'}")
 
     return fig
