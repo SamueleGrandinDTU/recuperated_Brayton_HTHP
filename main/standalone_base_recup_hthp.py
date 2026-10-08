@@ -25,8 +25,7 @@ from src import (
     validate_plant,
     calculate_component_cost,
     optimize_operational_strategy,
-    plot_operational_strategy,
-    plot_component_cost_stacked,
+    perform_lcoh_analysis,
 )
 
 # 1. Create the validation network and assemble the plant into it
@@ -110,6 +109,9 @@ result = optimize_operational_strategy(
     year=2025,
 )
 
-plot_operational_strategy(
-    result, save_path="results/temporary/example_2025_dk1_standalone.png"
+# 8. Perform the LCOH analysis
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result,
 )

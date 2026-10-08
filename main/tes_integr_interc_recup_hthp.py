@@ -24,6 +24,7 @@ from src import (
     calculate_component_cost,
     calculate_tanks_geometry,
     optimize_operational_strategy,
+    perform_lcoh_analysis,
 )
 
 # 1. Solve the simulation in the design condition
@@ -79,7 +80,7 @@ tank1, tank2 = calculate_tanks_geometry(
 )
 
 # 6. Estimate the component costs
-calculate_component_cost(
+component_cost = calculate_component_cost(
     plant_tes_integr_interc_recup_hthp,
     [tank1, tank2],
     file_name="tes_integr_interc_recup_hthp",
@@ -92,4 +93,11 @@ result = optimize_operational_strategy(
     E_TES=8.0,
     market="DK1",
     year=2025,
+)
+
+# 8. Perform the LCOH analysis
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result,
 )

@@ -23,7 +23,7 @@ from src import (
     get_exergy_analysis,
     calculate_component_cost,
     optimize_operational_strategy,
-    plot_operational_strategy,
+    perform_lcoh_analysis,
 )
 
 # 1. Set and solve the simulation
@@ -89,4 +89,11 @@ result = optimize_operational_strategy(
     E_TES=0.0,
     market="DK1",
     year=2025,
+)
+
+# 8. Perform the LCOH analysis
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result,
 )
