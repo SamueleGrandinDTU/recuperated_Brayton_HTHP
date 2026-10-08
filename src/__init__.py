@@ -21,6 +21,7 @@ from .models import (
 )
 
 from .post_processing import (
+    plot_operational_strategy,
     plot_component_cost_stacked,
     plot_exergy_destruction_stacked,
     plot_exergetic_efficiencies,
@@ -38,7 +39,14 @@ from .cost_analysis import calculate_component_cost
 
 from .exergy_analysis import get_exergy_analysis
 
+from .lcoh_analysis import calculate_future_costs, perform_lcoh_analysis
+
 from .network_creator import create_configured_network
+
+from .plant_operation import (
+    Plant,
+    optimize_operational_strategy,
+)
 
 __all__ = [
     "calculate_tanks_geometry",
@@ -49,6 +57,7 @@ __all__ = [
     "create_configured_network",
     "standalone_base_recup_hthp",
     "standalone_base_recup_hthp_Benvenuti",
+    "plot_operational_strategy",
     "standalone_interc_recup_hthp",
     "tes_integr_base_recup_hthp",
     "tes_integr_interc_recup_hthp",
@@ -65,5 +74,9 @@ __all__ = [
     "plot_ts_diagram",
     "calculate_component_cost",
     "get_exergy_analysis",
+    "calculate_future_costs",
+    "perform_lcoh_analysis",
     "create_configured_network",
+    "Plant",
+    "optimize_operational_strategy",
 ]

@@ -1,5 +1,7 @@
 """Post-processing package"""
 
+from .economic_plotting import plot_operational_strategy
+
 from .cost_plotting import plot_component_cost_stacked
 
 from .exergy_plotting import (
@@ -22,6 +24,7 @@ from .plant_validation import validate_plant
 from .ts_diagram import plot_ts_diagram
 
 __all__ = [
+    "plot_operational_strategy",
     "plot_component_cost_stacked",
     "plot_exergy_destruction_stacked",
     "plot_exergetic_efficiencies",

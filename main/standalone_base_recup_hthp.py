@@ -24,7 +24,8 @@ from src import (
     get_exergy_analysis,
     validate_plant,
     calculate_component_cost,
-    plot_component_cost_stacked,
+    optimize_operational_strategy,
+    perform_lcoh_analysis,
 )
 
 # 1. Create the validation network and assemble the plant into it
@@ -67,7 +68,7 @@ plot_hx_diagram(
     save_path="results/plots",
 )
 
-# 4. Generate tables for performance and sizing parameters
+# 4. Save sizing and performance parameters tables as csv files
 generate_performance_parameters_table(
     plant_standalone_base_recup,
     file_name="standalone_base_recup_hthp",
@@ -86,7 +87,7 @@ generate_connections_table(
     save_path="results/tables/connections",
 )
 
-# 5. Perform exergy analysis, generate the exergy analysis table
+# 5. Perform exergy analysis and save results as csv files
 exergy_results = get_exergy_analysis(
     plant_standalone_base_recup,
     file_name="standalone_base_recup_hthp",
@@ -100,8 +101,17 @@ component_cost = calculate_component_cost(
     save_path="results/tables/components_cost",
 )
 
-plot_component_cost_stacked(
-    component_cost,
-    save_path="results/plots",
-    file_name="standalone_base_recup_hthp",
+# 7. Optimize the operational strategy and plot the results (no TES)
+result = optimize_operational_strategy(
+    plant_standalone_base_recup,
+    E_TES=0.0,
+    market="DK1",
+    year=2025,
+)
+
+# 8. Perform the LCOH analysis
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result,
 )
