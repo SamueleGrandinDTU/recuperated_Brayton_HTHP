@@ -39,6 +39,8 @@ from .cost_analysis import calculate_component_cost
 
 from .exergy_analysis import get_exergy_analysis
 
+from .lcoh_analysis import calculate_future_costs, perform_lcoh_analysis
+
 from .network_creator import create_configured_network
 
 from .plant_operation import (
@@ -72,6 +74,8 @@ __all__ = [
     "plot_ts_diagram",
     "calculate_component_cost",
     "get_exergy_analysis",
+    "calculate_future_costs",
+    "perform_lcoh_analysis",
     "create_configured_network",
     "Plant",
     "optimize_operational_strategy",
