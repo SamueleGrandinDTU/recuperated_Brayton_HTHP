@@ -101,17 +101,34 @@ component_cost = calculate_component_cost(
     save_path="results/tables/components_cost",
 )
 
-# 7. Optimize the operational strategy and plot the results (no TES)
-result = optimize_operational_strategy(
+# 7. Optimize the operational strategy on the DK1 market and perform the LCOH analysis
+result_dk1 = optimize_operational_strategy(
     plant_standalone_base_recup,
     E_TES=0.0,
     market="DK1",
     year=2025,
+    heat_demand_profile="fixed",
 )
 
-# 8. Perform the LCOH analysis
 perform_lcoh_analysis(
     lifetime=25,
     component_cost=component_cost,
-    operational_result=result,
+    operational_result=result_dk1,
+    market="DK1",
+)
+
+# 8. Optimize the operational strategy on the DE market and perform the LCOH analysis
+result_de = optimize_operational_strategy(
+    plant_standalone_base_recup,
+    E_TES=0.0,
+    market="DE",
+    year=2025,
+    heat_demand_profile="fixed",
+)
+
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result_de,
+    market="DE",
 )
