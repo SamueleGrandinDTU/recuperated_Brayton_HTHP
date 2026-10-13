@@ -1,5 +1,5 @@
 """
-Example for the simulation of the standalone base recuperated case working with a fixed heat demand profile on the DK1 market for one week.
+Example for the simulation of the standalone base recuperated case working with a fixed heat demand profile on the DK1 and DE market for one week.
 The simulation is performed without TES, and the operational strategy is optimized for the given heat demand profile.
 """
 
@@ -18,7 +18,7 @@ plant.build_into(plant_standalone_base_recup)
 plant_standalone_base_recup.solve(mode="design")
 plant_standalone_base_recup.print_results()
 
-# 2. Optimize the operational strategy and plot the results (no TES)
+# 2. Optimize the operational strategy on the DK1 market and plot the results (no TES)
 result = optimize_operational_strategy(
     plant_standalone_base_recup,
     E_TES=0.0,
@@ -28,6 +28,20 @@ result = optimize_operational_strategy(
 
 plot_operational_strategy(
     result,
-    file_name="standalone_base_recup_hthp_1week_simulation",
+    file_name="standalone_base_recup_hthp_1week_DK1_simulation",
+    save_path="results/temporary",
+)
+
+# 3. Optimize the operational strategy on the DE market and plot the results (no TES)
+result = optimize_operational_strategy(
+    plant_standalone_base_recup,
+    E_TES=0.0,
+    market="DE",
+    week=1,
+)
+
+plot_operational_strategy(
+    result,
+    file_name="standalone_base_recup_hthp_1week_DE_simulation",
     save_path="results/temporary",
 )
