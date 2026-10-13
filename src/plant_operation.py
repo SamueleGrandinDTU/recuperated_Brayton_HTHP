@@ -8,7 +8,7 @@ The core function, ``optimize_operational_strategy``, is a MILP
 with thermal energy storage (TES) against day-ahead electricity prices,
 subject to:
 
-    - a fixed heat demand profile
+    - a heat demand profile (see "Heat demand profiles" below)
     - a minimum continuous HTHP run time once it starts (12 h by default)
     - a TES energy balance with a finite storage capacity
 
@@ -22,6 +22,21 @@ keys):
               TES [-]
     Q_HTHP  : useful thermal power delivered by the HTHP when ON [MWth]
     E_TES   : maximum usable TES energy capacity [MWhth]
+
+Heat demand profiles
+---------------------
+Selected with the ``heat_demand_profile`` input:
+
+    "fixed" (default)
+        1 MWth every day from 06:00 to 22:00, 0 otherwise. The profile is
+        an input of the optimization.
+    "free"
+        The process still needs 16 hours of 1 MWth heat per calendar day
+        (16 MWh/day), but WHEN those 16 hours happen is part of the
+        optimization: the plant chooses, hour by hour, when the process
+        takes heat, together with when the HTHP runs and the TES
+        charges/discharges. All other constraints are unchanged. The 16
+        hours need not be consecutive.
 
 Weekly rolling horizon
 -----------------------
@@ -315,7 +330,7 @@ def _resolve_plant(
 # "Price [EUR/MWh]" column, one row per hour.
 MARKET_PRICE_FILES = {
     "DK1": "dk1_electricity_prices_2025.csv",
-    "Germany": "germany_electricity_prices_2025.csv",
+    "DE": "de_electricity_prices_2025.csv",
 }
 
 DEFAULT_DATA_DIR = (
@@ -370,6 +385,26 @@ DEMAND_END_HOUR = 22  # exclusive
 Q_DEMAND_DEFAULT = 1.0  # [MWth]
 
 
+# Hours of heat demand per day (both profiles): 06:00-22:00 = 16 h
+DAILY_DEMAND_HOURS = DEMAND_END_HOUR - DEMAND_START_HOUR
+
+HEAT_DEMAND_PROFILES = ("fixed", "free")
+DEFAULT_HEAT_DEMAND_PROFILE = HEAT_DEMAND_PROFILES[0]
+
+
+def _check_heat_demand_profile(heat_demand_profile: str) -> str:
+    """Return the canonical profile name (case/whitespace-insensitive) or
+    raise a clear error listing the available ones."""
+
+    normalized = " ".join(str(heat_demand_profile).lower().split())
+    if normalized not in HEAT_DEMAND_PROFILES:
+        raise ValueError(
+            f"Unknown heat_demand_profile '{heat_demand_profile}'. "
+            f"Available profiles: {list(HEAT_DEMAND_PROFILES)}"
+        )
+    return normalized
+
+
 def _demand_profile(timestamps: Sequence[datetime], q_demand: float = Q_DEMAND_DEFAULT):
     """Constant industrial heat demand from 06:00 to 22:00, else zero."""
 
@@ -379,6 +414,20 @@ def _demand_profile(timestamps: Sequence[datetime], q_demand: float = Q_DEMAND_D
     ]
 
 
+def _daily_demand_requirements(timestamps: Sequence[datetime]):
+    """For the "free" profile: group the block's hours by calendar day and
+    return [(indices, required_demand_hours), ...]: 16 hours for every
+    day (a 23- or 25-hour daylight-saving day included). The free profile
+    always solves blocks made of whole calendar days (see
+    ``_chunk_into_calendar_weeks``), so no day is ever split."""
+
+    days: dict = {}
+    for i, ts in enumerate(timestamps):
+        days.setdefault(ts.date(), []).append(i)
+
+    return [(idx, min(DAILY_DEMAND_HOURS, len(idx))) for idx in days.values()]
+
+
 # ============================================================================
 # PERIOD SELECTION
 # ============================================================================
@@ -386,14 +435,17 @@ def _demand_profile(timestamps: Sequence[datetime], q_demand: float = Q_DEMAND_D
 WEEK_HOURS = 24 * 7
 
 
-def _select_period_indices(timestamps, month=None, week=None):
+def _select_period_indices(timestamps, month=None, week=None, calendar_weeks=False):
     """Return the [start, end) index range for the requested period.
 
     - Nothing specified -> the whole year.
     - `month` (1-12) -> all hours whose timestamp falls in that calendar
       month.
     - `week` (1, 2, 3, ...) -> the n-th consecutive 168-hour block of the
-      year, counted from 1-Jan 00:00 (NOT calendar weeks Mon-Sun).
+      year, counted from 1-Jan 00:00 (NOT calendar weeks Mon-Sun). With
+      `calendar_weeks` (free demand profile) it is the n-th block of 7
+      whole calendar days instead - identical until the first daylight-
+      saving change, then offset by one hour.
     """
 
     n = len(timestamps)
@@ -409,6 +461,13 @@ def _select_period_indices(timestamps, month=None, week=None):
             raise ValueError(f"No data found for month {month}.")
         return idx[0], idx[-1] + 1
 
+    if week is not None and calendar_weeks:
+        days = _calendar_days(timestamps, 0, n)
+        n_weeks = math.ceil(len(days) / 7)
+        if not (1 <= week <= n_weeks):
+            raise ValueError(f"`week` must be between 1 and {n_weeks}.")
+        return days[(week - 1) * 7][0], days[min(week * 7, len(days)) - 1][1]
+
     if week is not None:
         n_weeks = math.ceil(n / WEEK_HOURS)
         if not (1 <= week <= n_weeks):
@@ -419,6 +478,34 @@ def _select_period_indices(timestamps, month=None, week=None):
 
     # Nothing specified -> whole year
     return 0, n
+
+
+def _calendar_days(timestamps, start: int, end: int):
+    """[(first_index, last_index_exclusive), ...] of every calendar day in
+    [start, end)."""
+
+    days = []
+    i = start
+    while i < end:
+        j = i
+        while j < end and timestamps[j].date() == timestamps[i].date():
+            j += 1
+        days.append((i, j))
+        i = j
+    return days
+
+
+def _chunk_into_calendar_weeks(timestamps, start: int, end: int):
+    """Free profile: split [start, end) into blocks of 7 whole calendar
+    days (the last one may be shorter). Unlike ``_chunk_into_weeks`` (168
+    hours), a block never cuts a day in two, which the daily 16-hour
+    demand requires - the data has 23/25-hour days around the daylight-
+    saving changes, so 168-hour blocks drift away from midnight."""
+
+    days = _calendar_days(timestamps, start, end)
+    return [
+        (days[k][0], days[min(k + 7, len(days)) - 1][1]) for k in range(0, len(days), 7)
+    ]
 
 
 def _chunk_into_weeks(start: int, end: int):
@@ -441,6 +528,7 @@ def _chunk_into_weeks(start: int, end: int):
 @dataclass
 class _BlockResult:
     Q_HTHP: list
+    Q_demand: list
     start: list
     E_TES: list
     cost: float
@@ -458,10 +546,20 @@ def _solve_block(
     solver_options: dict,
     tee: bool,
     is_final_block: bool = True,
+    free_demand_days: Optional[list] = None,
 ) -> _BlockResult:
+    """Solve one block.
+
+    Fixed demand profile: `demand` is the hourly demand [MWth] (input).
+    Free demand profile: `demand` is None and `free_demand_days` holds
+    [(hour indices of a day, required demand hours), ...]; the hourly
+    demand becomes a decision variable.
+    """
 
     n = len(prices)
-    assert len(demand) == n
+    free_demand = free_demand_days is not None
+    if not free_demand:
+        assert len(demand) == n
 
     Q_HTHP_cap = _plant_param(plant, "Q_HTHP")
     COP = _plant_param(plant, "COP")
@@ -484,8 +582,31 @@ def _solve_block(
 
     model.initial_storage = pyo.Constraint(expr=model.E_TES[0] == initial_E_TES)
 
+    if free_demand:
+        # process_on[t] = 1 -> the process takes Q_DEMAND_DEFAULT at hour t.
+        # Exactly the required number of demand hours per calendar day.
+        model.process_on = pyo.Var(model.T, domain=pyo.Binary)
+
+        def daily_demand_rule(m, k):
+            idx, hours = free_demand_days[k]
+            return sum(m.process_on[t] for t in idx) == hours
+
+        model.daily_demand = pyo.Constraint(
+            range(len(free_demand_days)), rule=daily_demand_rule
+        )
+
+        def demand_at(m, t):
+            return Q_DEMAND_DEFAULT * m.process_on[t]
+
+    else:
+
+        def demand_at(m, t):
+            return demand[t]
+
     def tes_balance_rule(m, t):
-        return m.E_TES[t + 1] == m.E_TES[t] + (Q_HTHP_cap * m.Q_HTHP[t] - demand[t])
+        return m.E_TES[t + 1] == m.E_TES[t] + (
+            Q_HTHP_cap * m.Q_HTHP[t] - demand_at(m, t)
+        )
 
     model.tes_balance = pyo.Constraint(model.T, rule=tes_balance_rule)
 
@@ -554,6 +675,12 @@ def _solve_block(
         )
 
     Q_HTHP_result = [round(pyo.value(model.Q_HTHP[t])) for t in model.T]
+    if free_demand:
+        Q_demand_result = [
+            Q_DEMAND_DEFAULT * round(pyo.value(model.process_on[t])) for t in model.T
+        ]
+    else:
+        Q_demand_result = [float(d) for d in demand]
     start_result = [round(pyo.value(model.start[t])) for t in model.T]
     E_TES_result = [pyo.value(model.E_TES[t]) for t in range(n + 1)]
     cost = pyo.value(model.objective)
@@ -568,6 +695,7 @@ def _solve_block(
 
     return _BlockResult(
         Q_HTHP=Q_HTHP_result,
+        Q_demand=Q_demand_result,
         start=start_result,
         E_TES=E_TES_result,
         cost=cost,
@@ -595,6 +723,7 @@ class OperationalStrategyResult:
     total_operating_hours: float
     plant: PlantLike
     market: str
+    heat_demand_profile: str = DEFAULT_HEAT_DEMAND_PROFILE
 
 
 # ============================================================================
@@ -608,6 +737,7 @@ def optimize_operational_strategy(
     month: Optional[int] = None,
     week: Optional[int] = None,
     year: int = 2025,
+    heat_demand_profile: str = DEFAULT_HEAT_DEMAND_PROFILE,
     min_on_hours: int = 12,
     E_TES: Optional[float] = None,
     interface_hx_label: str = "interface hx",
@@ -626,7 +756,7 @@ def optimize_operational_strategy(
         E_TES [MWhth] directly, or a solved TESPy ``Network`` object, in
         which case COP and Q_HTHP are derived automatically (see
         ``derive_plant_from_tespy``) and `E_TES` below must be supplied.
-    market : {"DK1", "Germany"}
+    market : {"DK1", "DE"}
         Which day-ahead electricity price series to use.
     month : int, optional
         1-12. If given, the optimization runs over that calendar month
@@ -639,6 +769,13 @@ def optimize_operational_strategy(
     year : int
         Year to pull prices for (must match what's in the CSV; default
         2025).
+    heat_demand_profile : {"fixed", "free"}
+        Heat demand profile to simulate (see the module docstring).
+        "fixed": 1 MWth from 06:00 to 22:00 every day.
+        "free": 16 h of 1 MWth per day, with the hours
+        chosen by the optimization. Its weekly blocks (and `week`) are 7
+        whole calendar days instead of 168 hours, so a day is never split
+        between two blocks.
     min_on_hours : int
         Minimum number of consecutive hours the HTHP must run once
         started. Fixed at 12 per the current plant specification.
@@ -679,6 +816,9 @@ def optimize_operational_strategy(
     if solver_options is None:
         solver_options = {"tmlim": 360, "mipgap": 0.01}
 
+    heat_demand_profile = _check_heat_demand_profile(heat_demand_profile)
+    free_demand = heat_demand_profile == "free"
+
     plant = _resolve_plant(plant, E_TES=E_TES, interface_hx_label=interface_hx_label)
 
     if verbose:
@@ -690,14 +830,20 @@ def optimize_operational_strategy(
             period_desc = f"year {year}"
         print(
             f"Optimizing plant dispatch strategy for {period_desc} "
-            f"on the {market} market..."
+            f"on the {market} market (heat demand profile: "
+            f"{heat_demand_profile})..."
         )
 
     timestamps, prices = _load_price_series(market, year, Path(data_dir))
     demand = _demand_profile(timestamps)
 
-    start_idx, end_idx = _select_period_indices(timestamps, month=month, week=week)
-    chunks = _chunk_into_weeks(start_idx, end_idx)
+    start_idx, end_idx = _select_period_indices(
+        timestamps, month=month, week=week, calendar_weeks=free_demand
+    )
+    if free_demand:
+        chunks = _chunk_into_calendar_weeks(timestamps, start_idx, end_idx)
+    else:
+        chunks = _chunk_into_weeks(start_idx, end_idx)
 
     Q_HTHP_cap = _plant_param(plant, "Q_HTHP")
     COP = _plant_param(plant, "COP")
@@ -723,7 +869,7 @@ def optimize_operational_strategy(
 
         block = _solve_block(
             chunk_prices,
-            chunk_demand,
+            None if free_demand else chunk_demand,
             plant,
             min_on_hours=min_on_hours,
             initial_E_TES=E_TES_state,
@@ -732,15 +878,18 @@ def optimize_operational_strategy(
             solver_options=solver_options,
             tee=tee,
             is_final_block=(i == len(chunks) - 1),
+            free_demand_days=(
+                _daily_demand_requirements(chunk_time) if free_demand else None
+            ),
         )
 
         all_time.extend(chunk_time)
-        all_Q_demand.extend(chunk_demand)
+        all_Q_demand.extend(block.Q_demand)
         all_Q_HTHP.extend(block.Q_HTHP)
         all_start.extend(block.start)
         all_el_price.extend(chunk_prices)
 
-        Q_TES_chunk = [Q_HTHP_cap * q - d for q, d in zip(block.Q_HTHP, chunk_demand)]
+        Q_TES_chunk = [Q_HTHP_cap * q - d for q, d in zip(block.Q_HTHP, block.Q_demand)]
         all_Q_TES.extend(Q_TES_chunk)
 
         Q_el_chunk = [Q_HTHP_cap * q / COP for q in block.Q_HTHP]
@@ -781,4 +930,5 @@ def optimize_operational_strategy(
         total_operating_hours=sum(all_Q_HTHP),
         plant=plant,
         market=market,
+        heat_demand_profile=heat_demand_profile,
     )
