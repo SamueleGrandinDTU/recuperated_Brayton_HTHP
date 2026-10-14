@@ -23,6 +23,8 @@ from .models import (
 from .post_processing import (
     plot_operational_strategy,
     plot_component_cost_stacked,
+    plot_lcoh_scenarios_stacked,
+    plot_delta_lcoh_analysis,
     plot_exergy_destruction_stacked,
     plot_exergetic_efficiencies,
     plot_hx_diagram,
@@ -62,6 +64,8 @@ __all__ = [
     "tes_integr_base_recup_hthp",
     "tes_integr_interc_recup_hthp",
     "plot_component_cost_stacked",
+    "plot_lcoh_scenarios_stacked",
+    "plot_delta_lcoh_analysis",
     "plot_exergy_destruction_stacked",
     "plot_exergetic_efficiencies",
     "plot_hx_diagram",
