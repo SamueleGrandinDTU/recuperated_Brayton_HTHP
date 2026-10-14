@@ -14,6 +14,8 @@ from src import (
     plot_exergy_destruction_stacked,
     plot_component_cost_stacked,
     plot_exergetic_efficiencies,
+    plot_lcoh_scenarios_stacked,
+    plot_delta_lcoh_analysis,
 )
 
 # One entry per cycle: "file_name" matches the file_name each plant script
@@ -47,6 +49,9 @@ cost_csv_paths = [
     RESULTS_DIR / "components_cost" / f"{cycle['file_name']}_components_cost.csv"
     for cycle in CYCLES
 ]
+lcoh_csv_paths = [
+    RESULTS_DIR / "lcoh" / f"{cycle['file_name']}_lcoh.csv" for cycle in CYCLES
+]
 cycle_labels = [cycle["label"] for cycle in CYCLES]
 
 # 1. Exergy destruction, all four cycles side by side
@@ -69,6 +74,26 @@ plot_component_cost_stacked(
 plot_exergetic_efficiencies(
     exergy_csv_paths,
     cycle_labels=cycle_labels,
+    save_path=FIGURES_DIR,
+    file_name="all_hthp",
+)
+
+# 4. LCOH scenarios plot for all four cycles
+plot_lcoh_scenarios_stacked(
+    lcoh_csv_paths,
+    lcoh_kind="DK1 fixed",
+    cycle_labels=cycle_labels,
+    save_path=FIGURES_DIR,
+    file_name="all_hthp",
+)
+
+# 5. Delta LCOH (TES-integrated - standalone) per scenario, market and heat demand
+plot_delta_lcoh_analysis(
+    [
+        [lcoh_csv_paths[0], lcoh_csv_paths[2]],  # base
+        [lcoh_csv_paths[1], lcoh_csv_paths[3]],  # intercooled
+    ],
+    pair_labels=["Base", "Intercooled"],
     save_path=FIGURES_DIR,
     file_name="all_hthp",
 )
