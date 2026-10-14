@@ -101,7 +101,7 @@ component_cost = calculate_component_cost(
     save_path="results/tables/components_cost",
 )
 
-# 7. Optimize the operational strategy on the DK1 market and perform the LCOH analysis
+# 7. Optimize the operational strategy on the DK1 market and perform the LCOH analysis (fixed demand profile)
 result_dk1 = optimize_operational_strategy(
     plant_standalone_base_recup,
     E_TES=0.0,
@@ -117,13 +117,45 @@ perform_lcoh_analysis(
     market="DK1",
 )
 
-# 8. Optimize the operational strategy on the DE market and perform the LCOH analysis
+# 8. Optimize the operational strategy on the DE market and perform the LCOH analysis (fixed demand profile)
 result_de = optimize_operational_strategy(
     plant_standalone_base_recup,
     E_TES=0.0,
     market="DE",
     year=2025,
     heat_demand_profile="fixed",
+)
+
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result_de,
+    market="DE",
+)
+
+# 9. Optimize the operational strategy on the DK1 market and perform the LCOH analysis (free demand profile)
+result_dk1 = optimize_operational_strategy(
+    plant_standalone_base_recup,
+    E_TES=0.0,
+    market="DK1",
+    year=2025,
+    heat_demand_profile="free",
+)
+
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result_dk1,
+    market="DK1",
+)
+
+# 10. Optimize the operational strategy on the DE market and perform the LCOH analysis (free demand profile)
+result_de = optimize_operational_strategy(
+    plant_standalone_base_recup,
+    E_TES=0.0,
+    market="DE",
+    year=2025,
+    heat_demand_profile="free",
 )
 
 perform_lcoh_analysis(
