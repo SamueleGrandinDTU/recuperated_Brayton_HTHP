@@ -23,6 +23,14 @@ _LINEWIDTH = PLOT_STYLE["lines_and_markers"]["linewidth"]
 _STYLE_WIDTH, _STYLE_HEIGHT = PLOT_STYLE["figure"]["figsize"]
 _FIGSIZE = (_STYLE_WIDTH * 2, _STYLE_HEIGHT)
 
+# Resolution of the operational strategy figure (higher than the project-wide
+# PLOT_STYLE dpi, which is tuned for the compact diagrams).
+_DPI = 300
+
+# The time axis is labelled every 24 h (daily) as long as the period is at
+# most this many days long; longer periods keep matplotlib's automatic ticks.
+_MAX_DAILY_TICK_DAYS = 14
+
 
 def _plant_E_TES(plant) -> float:
     """Read the TES capacity off `result.plant`, which may be a `Plant`
@@ -88,7 +96,7 @@ def _draw_operational_strategy(ax1, result, power_axis_max=None):
         step="post",
         color=_COLORS["process"],
         alpha=0.25,
-        label=r"$Q_{\mathrm{demand}}$",
+        label=r"$\dot{Q}_{\mathrm{demand}}$",
         zorder=1,
     )
 
@@ -99,7 +107,7 @@ def _draw_operational_strategy(ax1, result, power_axis_max=None):
         color=_COLORS["fuel"],
         linewidth=_LINEWIDTH,
         linestyle="-",
-        label=r"$Q_{\mathrm{HTHP}}$",
+        label=r"$\dot{Q}_{\mathrm{HTHP}}$",
         zorder=3,
     )
 
@@ -117,6 +125,11 @@ def _draw_operational_strategy(ax1, result, power_axis_max=None):
     )
     _style_axes(ax2)
 
+    # daily time ticks: 0, 24, 48, 72, ...
+    n_hours = len(result.time)
+    if n_hours <= 24 * _MAX_DAILY_TICK_DAYS:
+        ax1.set_xticks(range(0, n_hours + 1, 24))
+
     line2 = ax2.collections[-1]
     return ax2, line1 + [line2] + line3 + line4
 
@@ -128,13 +141,15 @@ def plot_operational_strategy(
     row_labels=None,
     col_labels=None,
     power_axis_max: Optional[float] = 8.5,
+    dpi: int = _DPI,
 ):
     """Plot price, demand, HTHP schedule and TES state of charge for one or
     several ``optimize_operational_strategy`` results, styled per
     ``PLOT_STYLE``.
 
     With one result the figure is a single plot. With several results the
-    figure is a grid of subplots, one per result, in the order given.
+    figure is a grid of subplots, one per result, in the order given, each
+    labelled (a), (b), (c), ... plus its name.
 
     Parameters
     ----------
@@ -154,18 +169,21 @@ def plot_operational_strategy(
         The figure is saved as ``<file_name>_operational_strategy.png``.
         Required when `save_path` is given.
     save_path : str | Path, optional
-        Directory the figure is saved in (created if missing; dpi and
-        facecolor per ``PLOT_STYLE["figure"]``). If None, nothing is saved.
+        Directory the figure is saved in (created if missing; facecolor per
+        ``PLOT_STYLE["figure"]``). If None, nothing is saved.
     row_labels, col_labels : list of str, optional
         Labels of the rows / columns of a grid; each panel is titled
-        "<column> - <row>". Defaults for a 2x2 grid: rows "Fixed heat
+        "(a) <column> - <row>". Defaults for a 2x2 grid: rows "Fixed heat
         demand" / "Free heat demand", columns "Standalone" /
-        "TES-Integrated". Without labels (other shapes) panels are untitled.
+        "TES-Integrated". Without labels (other shapes) panels are titled
+        just "(a)", "(b)", ...
     power_axis_max : float, optional
         Upper limit [MWth / MWhth] of the power / TES energy axis, the same
         in every panel (and in the single plot), so all figures are directly
         comparable (default 8.5). None: each panel is scaled to its own
         plant's TES capacity.
+    dpi : int
+        Resolution of the figure and of the saved file (default 300).
 
     Returns
     -------
@@ -203,7 +221,7 @@ def plot_operational_strategy(
         n_rows,
         n_cols,
         figsize=figsize,
-        dpi=PLOT_STYLE["figure"]["dpi"],
+        dpi=dpi,
         facecolor=PLOT_STYLE["figure"]["facecolor"],
         sharex=True,
         sharey=True,
@@ -228,20 +246,24 @@ def plot_operational_strategy(
                     "Power / TES energy [MWth / MWhth]", fontsize=_FONTS["label"]
                 )
 
-            title = " - ".join(
-                x
-                for x in (
-                    col_labels[c] if col_labels else None,
-                    row_labels[r] if row_labels else None,
+            if not single:
+                letter = f"({chr(ord('a') + r * n_cols + c)})"
+                name = " - ".join(
+                    x
+                    for x in (
+                        col_labels[c] if col_labels else None,
+                        row_labels[r] if row_labels else None,
+                    )
+                    if x
                 )
-                if x
-            )
-            if title:
-                ax1.set_title(title, fontsize=_FONTS["label"])
+                ax1.set_title(
+                    f"{letter} {name}" if name else letter, fontsize=_FONTS["label"]
+                )
 
     labels = [h.get_label() for h in handles]
     if single:
         axes[0, 0].legend(handles, labels, loc="upper left", fontsize=_FONTS["legend"])
+        fig.tight_layout()
     else:
         fig.legend(
             handles,
@@ -252,15 +274,7 @@ def plot_operational_strategy(
             fontsize=_FONTS["legend"],
             framealpha=0.95,
         )
-
-    fig.suptitle(
-        f"Optimal HTHP-TES Scheduling ({grid[0][0].market})",
-        fontsize=_FONTS["title"],
-    )
-    if single:
-        fig.tight_layout()
-    else:
-        fig.tight_layout(rect=(0, 0.05, 1, 0.97))
+        fig.tight_layout(rect=(0, 0.05, 1, 1))
 
     if save_path is not None:
         if file_name is None:
@@ -269,7 +283,7 @@ def plot_operational_strategy(
         save_path.mkdir(parents=True, exist_ok=True)
         fig.savefig(
             save_path / f"{file_name}_operational_strategy.png",
-            dpi=PLOT_STYLE["figure"]["dpi"],
+            dpi=dpi,
             bbox_inches="tight",
             facecolor=PLOT_STYLE["figure"]["facecolor"],
         )

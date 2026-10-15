@@ -545,7 +545,7 @@ def plot_delta_lcoh_analysis(
     x_groups = np.arange(len(scenarios), dtype=float)
     step = 0.3  # horizontal spacing between layouts inside a scenario
 
-    for ax, market in zip(axes, markets):
+    for k, (ax, market) in enumerate(zip(axes, markets)):
         ax.axhline(0, color=_COLORS["edge"], linewidth=_LINEWIDTH, zorder=2)
 
         for p, (_, delta) in enumerate(deltas):
@@ -584,7 +584,7 @@ def plot_delta_lcoh_analysis(
         ax.set_xticks(x_groups)
         ax.set_xticklabels([str(s).capitalize() for s in scenarios])
         ax.set_xlabel("Scenario", fontsize=_FONTS["label"])
-        ax.set_title(market, fontsize=_FONTS["label"])
+        ax.set_title(f"({chr(ord('a') + k)}) {market}", fontsize=_FONTS["label"])
 
         # which side of the zero line means what
         ax.text(
