@@ -14,7 +14,7 @@ from .exergy_plotting import (
     plot_exergy_plots,
 )
 
-from .hx_diagram import plot_hx_diagram
+from .hx_diagram import plot_hx_diagram, save_hx_table
 
 from .parameters_tables import (
     save_table_as_csv,
@@ -37,6 +37,7 @@ __all__ = [
     "plot_exergetic_efficiencies",
     "plot_exergy_plots",
     "plot_hx_diagram",
+    "save_hx_table",
     "save_table_as_csv",
     "save_table_as_png",
     "generate_performance_parameters_table",
