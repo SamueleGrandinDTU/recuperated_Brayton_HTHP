@@ -14,6 +14,7 @@ from src import (
     plot_exergy_destruction_stacked,
     plot_component_cost_stacked,
     plot_exergetic_efficiencies,
+    plot_exergy_plots,
     plot_lcoh_scenarios_stacked,
     plot_delta_lcoh_analysis,
 )
@@ -74,6 +75,16 @@ plot_component_cost_stacked(
 plot_exergetic_efficiencies(
     exergy_csv_paths,
     cycle_labels=cycle_labels,
+    save_path=FIGURES_DIR,
+    file_name="all_hthp",
+)
+
+plot_exergy_plots(
+    exergy_csv_paths,
+    cycle_labels=cycle_labels,
+    plots=["destruction", "efficiencies"],
+    combined=True,
+    layout="horizontal",
     save_path=FIGURES_DIR,
     file_name="all_hthp",
 )
