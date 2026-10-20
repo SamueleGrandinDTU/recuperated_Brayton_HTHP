@@ -136,45 +136,66 @@ def _ordered_components_present(df_list):
     return ordered_components
 
 
-def plot_exergy_destruction_stacked(
-    exergy_destruction,
-    cycle_labels=None,
-    save_path=None,
-    file_name=None,
-):
-    """
-    Plot exergy destruction as one stacked bar per cycle. Component stacking
-    order and colors follow a fixed, predefined scheme so they stay
-    consistent across figures.
+def _style_axes(ax):
+    """Shared grid / spine / tick styling for the exergy plots."""
+    ax.grid(
+        axis="y",
+        alpha=PLOT_STYLE["grid"]["alpha"],
+        linestyle="--",
+        linewidth=PLOT_STYLE["grid"]["linewidth"],
+    )
+    ax.set_axisbelow(True)
 
-    Parameters
-    ----------
-    exergy_destruction : pd.DataFrame, str/Path, or list of either
-        The "components" DataFrame from the exergy analysis, or the path to
-        a CSV saved by get_exergy_analysis (its trailing cycle-level summary
-        row, if present, is dropped automatically). Pass a list to plot
-        several cycles side by side, one bar each.
-    cycle_labels : list of str, optional
-        One label per cycle, in the same order as `exergy_destruction`, used
-        as the x-axis tick labels. If not given, cycles are labeled "Cycle
-        1", "Cycle 2", etc. — except for a single cycle, which falls back to
-        the fixed _CYCLE_LABEL for backward compatibility.
-    save_path : str or Path, optional
-        Directory to save the figure.
-    file_name : str, optional
-        Base name for the saved file.
+    for spine in ax.spines.values():
+        spine.set_color(PLOT_STYLE["axes"]["spine_color"])
+        spine.set_linewidth(PLOT_STYLE["axes"]["spine_linewidth"])
 
-    Returns
-    -------
-    fig, ax
-    """
-    df_list = _normalize_input(exergy_destruction)
+    ax.tick_params(
+        axis=PLOT_STYLE["ticks"]["axis"],
+        pad=PLOT_STYLE["ticks"]["pad"],
+        which=PLOT_STYLE["ticks"]["which"],
+        color=PLOT_STYLE["ticks"]["color"],
+        labelcolor=PLOT_STYLE["ticks"]["labelcolor"],
+        direction=PLOT_STYLE["ticks"]["direction"],
+    )
+
+    ax.set_box_aspect(PLOT_STYLE["axes"]["box_aspect"])
+    ax.set_facecolor(PLOT_STYLE["axes"]["facecolor"])
+
+
+def _save_figure(fig, save_path, file_name, suffix, dpi=None):
+    """Save `fig` as <save_path>/<file_name>_<suffix>.png (no-op if
+    save_path is None)."""
+    if save_path is None:
+        return
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+    out = save_path / f"{file_name}_{suffix}.png"
+    fig.savefig(
+        out,
+        dpi=dpi or PLOT_STYLE["figure"]["dpi"],
+        bbox_inches="tight",
+        facecolor=PLOT_STYLE["figure"]["facecolor"],
+    )
+    print(f"✓ Figure saved: {out}")
+
+
+def _prepare(data, cycle_labels):
+    """Load the data and resolve the labels; (None, None) if nothing to plot."""
+    df_list = _normalize_input(data)
     if df_list is None or all(df.empty for df in df_list):
         print("Warning: No data provided")
         return None, None
+    return df_list, _resolve_cycle_labels(df_list, cycle_labels)
 
-    cycle_labels = _resolve_cycle_labels(df_list, cycle_labels)
 
+# --------------------------------------------------------------------------
+# Drawing functions: draw one plot on a given axes, no figure handling
+# --------------------------------------------------------------------------
+
+
+def _draw_exergy_destruction(ax, df_list, cycle_labels):
+    """Stacked exergy destruction, one bar per cycle, on `ax`."""
     e_d_col = None
     for df in df_list:
         if not df.empty:
@@ -195,12 +216,7 @@ def plot_exergy_destruction_stacked(
             extra_idx += 1
 
     wrapped_labels = [textwrap.fill(lbl, width=_WRAP_WIDTH) for lbl in cycle_labels]
-
     x = np.arange(len(df_list))
-
-    fig, ax = plt.subplots(
-        figsize=PLOT_STYLE["figure"]["figsize"], dpi=PLOT_STYLE["figure"]["dpi"]
-    )
 
     bottoms = np.zeros(len(df_list))
     for comp in ordered_components:
@@ -233,98 +249,21 @@ def plot_exergy_destruction_stacked(
         rotation=0,
         fontsize=PLOT_STYLE["fonts"]["small_label"],
     )
-    # Scales to however many cycles are being compared, instead of the fixed
-    # (-1, 1) that only ever fit a single bar.
     ax.set_xlim(-0.75, len(df_list) - 1 + 0.75)
 
-    # Legend on top, above the plot area
     ax.legend(
         fontsize=PLOT_STYLE["fonts"]["legend"],
         framealpha=0.95,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 1.02),
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.27),
         ncol=min(len(ordered_components), 4),
     )
-
-    ax.grid(
-        axis="y",
-        alpha=PLOT_STYLE["grid"]["alpha"],
-        linestyle="--",
-        linewidth=PLOT_STYLE["grid"]["linewidth"],
-    )
-    ax.set_axisbelow(True)
-
-    for spine in ax.spines.values():
-        spine.set_color(PLOT_STYLE["axes"]["spine_color"])
-        spine.set_linewidth(PLOT_STYLE["axes"]["spine_linewidth"])
-
-    ax.tick_params(
-        axis=PLOT_STYLE["ticks"]["axis"],
-        pad=PLOT_STYLE["ticks"]["pad"],
-        which=PLOT_STYLE["ticks"]["which"],
-        color=PLOT_STYLE["ticks"]["color"],
-        labelcolor=PLOT_STYLE["ticks"]["labelcolor"],
-        direction=PLOT_STYLE["ticks"]["direction"],
-    )
-
-    ax.set_box_aspect(PLOT_STYLE["axes"]["box_aspect"])
-    ax.set_facecolor(PLOT_STYLE["axes"]["facecolor"])
-    fig.patch.set_facecolor(PLOT_STYLE["figure"]["facecolor"])
-
-    if save_path is not None:
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            save_path / f"{file_name}_exergy_stacked.png",
-            dpi=PLOT_STYLE["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=PLOT_STYLE["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {save_path / f'{file_name}_exergy_stacked.png'}")
-
-    return fig, ax
+    _style_axes(ax)
 
 
-def plot_exergetic_efficiencies(
-    exergy_destruction,
-    cycle_labels=None,
-    save_path=None,
-    file_name=None,
-):
-    """
-    Plot each component's exergetic efficiency as a grouped bar chart: one
-    group per component (compressor, compressor 1, compressor 2, turbine,
-    recuperator, sink, ...), in the fixed component order/grouping used
-    elsewhere in this module, with one bar per cycle inside each group.
-    Unlike the stacked plots, color here encodes the cycle, not the
-    component, so the same cycle keeps the same color across every group.
-
-    Parameters
-    ----------
-    exergy_destruction : pd.DataFrame, str/Path, or list of either
-        The "components" DataFrame from the exergy analysis (must include an
-        exergetic efficiency column, e.g. "ex_eff [%]"), or the path to a CSV
-        saved by get_exergy_analysis. Pass a list to compare several cycles.
-    cycle_labels : list of str, optional
-        One label per cycle, in the same order as `exergy_destruction`, used
-        for the legend and bar colors. If not given, cycles are labeled
-        "Cycle 1", "Cycle 2", etc.
-    save_path : str or Path, optional
-        Directory to save the figure.
-    file_name : str, optional
-        Base name for the saved file.
-
-    Returns
-    -------
-    fig, ax
-    """
-    df_list = _normalize_input(exergy_destruction)
-    if df_list is None or all(df.empty for df in df_list):
-        print("Warning: No data provided")
-        return None, None
-
-    cycle_labels = _resolve_cycle_labels(df_list, cycle_labels)
-
+def _draw_exergetic_efficiencies(ax, df_list, cycle_labels):
+    """Grouped exergetic-efficiency bars (one group per component, one bar
+    per cycle) on `ax`. Returns False if no efficiency column exists."""
     eff_col = None
     for df in df_list:
         if not df.empty:
@@ -333,29 +272,19 @@ def plot_exergetic_efficiencies(
 
     if eff_col is None:
         print("Warning: No exergetic efficiency column found")
-        return None, None
+        return False
 
     ordered_components = _ordered_components_present(df_list)
-
     cycle_colors = _assign_cycle_colors(cycle_labels)
 
     n_components = len(ordered_components)
     n_cycles = len(df_list)
     group_width = 0.8
-    # Fixed across every group, so a group with fewer cycles present (e.g.
-    # "compressor", missing from intercooled cycles) just occupies less
-    # total width rather than stretching its bars to fill the same space a
-    # fully-populated group (like "turbine") does.
     bar_width = group_width / n_cycles
 
-    # Family key groups "compressor"/"compressor 1"/"compressor 2" (etc.)
-    # together by stripping a trailing " <number>", so a family boundary can
-    # be detected and given extra spacing (compressor family -> turbine,
-    # turbine -> sink family, sink family -> recuperator, ...).
     family_keys = [
         re.sub(r"\s*\d+$", "", comp).strip().lower() for comp in ordered_components
     ]
-
     family_gap = 0.6
     positions = [0.0]
     for k in range(1, n_components):
@@ -363,16 +292,6 @@ def plot_exergetic_efficiencies(
         positions.append(positions[-1] + step)
     x_groups = np.array(positions)
 
-    fig, ax = plt.subplots(
-        figsize=PLOT_STYLE["figure"]["figsize"], dpi=PLOT_STYLE["figure"]["dpi"]
-    )
-
-    # Each group packs only the cycles that actually have that component, so
-    # the bars sit flush against each other with no reserved (empty) slots
-    # for cycles that don't — e.g. "compressor" has no bar for an
-    # intercooled cycle (which uses "compressor 1"/"compressor 2" instead),
-    # so that group packs just the cycles that do have it, centered, using
-    # the same fixed bar width as every other group.
     for comp_idx, comp in enumerate(ordered_components):
         present = [
             (i, df[df["Component"] == comp][eff_col].values[0])
@@ -383,7 +302,6 @@ def plot_exergetic_efficiencies(
             continue
 
         n_present = len(present)
-
         for j, (i, value) in enumerate(present):
             offset = (j - (n_present - 1) / 2) * bar_width
             ax.bar(
@@ -396,8 +314,6 @@ def plot_exergetic_efficiencies(
                 alpha=0.85,
             )
 
-    # Legend handles built explicitly (one per cycle) since a cycle may not
-    # have a real bar in every group to attach a "label=" to.
     legend_handles = [
         mpatches.Patch(
             facecolor=cycle_colors[i],
@@ -420,52 +336,150 @@ def plot_exergetic_efficiencies(
     )
     ax.set_xlim(x_groups[0] - 0.5, x_groups[-1] + 0.5)
 
-    # Legend on top, above the plot area, wrapped onto two rows.
     ax.legend(
         handles=legend_handles,
         fontsize=PLOT_STYLE["fonts"]["legend"],
         framealpha=0.95,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 1.02),
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.27),
         ncol=math.ceil(n_cycles / 2),
     )
+    _style_axes(ax)
+    return True
 
-    ax.grid(
-        axis="y",
-        alpha=PLOT_STYLE["grid"]["alpha"],
-        linestyle="--",
-        linewidth=PLOT_STYLE["grid"]["linewidth"],
+
+# Registry: plot key -> (draw function, suffix of the saved file name)
+_EXERGY_PLOTS = {
+    "destruction": (_draw_exergy_destruction, "exergy_stacked"),
+    "efficiencies": (_draw_exergetic_efficiencies, "exergetic_efficiencies"),
+}
+
+
+# --------------------------------------------------------------------------
+# Public functions
+# --------------------------------------------------------------------------
+
+
+def plot_exergy_destruction_stacked(
+    exergy_destruction, cycle_labels=None, save_path=None, file_name=None
+):
+    """Exergy destruction as one stacked bar per cycle (own figure).
+    Same behaviour and output file as before; see _draw_exergy_destruction."""
+    df_list, cycle_labels = _prepare(exergy_destruction, cycle_labels)
+    if df_list is None:
+        return None, None
+
+    fig, ax = plt.subplots(
+        figsize=PLOT_STYLE["figure"]["figsize"], dpi=PLOT_STYLE["figure"]["dpi"]
     )
-    ax.set_axisbelow(True)
-
-    for spine in ax.spines.values():
-        spine.set_color(PLOT_STYLE["axes"]["spine_color"])
-        spine.set_linewidth(PLOT_STYLE["axes"]["spine_linewidth"])
-
-    ax.tick_params(
-        axis=PLOT_STYLE["ticks"]["axis"],
-        pad=PLOT_STYLE["ticks"]["pad"],
-        which=PLOT_STYLE["ticks"]["which"],
-        color=PLOT_STYLE["ticks"]["color"],
-        labelcolor=PLOT_STYLE["ticks"]["labelcolor"],
-        direction=PLOT_STYLE["ticks"]["direction"],
-    )
-
-    ax.set_box_aspect(PLOT_STYLE["axes"]["box_aspect"])
-    ax.set_facecolor(PLOT_STYLE["axes"]["facecolor"])
+    _draw_exergy_destruction(ax, df_list, cycle_labels)
     fig.patch.set_facecolor(PLOT_STYLE["figure"]["facecolor"])
-
-    if save_path is not None:
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            save_path / f"{file_name}_exergetic_efficiencies.png",
-            dpi=PLOT_STYLE["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=PLOT_STYLE["figure"]["facecolor"],
-        )
-        print(
-            f"✓ Figure saved: {save_path / f'{file_name}_exergetic_efficiencies.png'}"
-        )
-
+    _save_figure(fig, save_path, file_name, "exergy_stacked")
     return fig, ax
+
+
+def plot_exergetic_efficiencies(
+    exergy_destruction, cycle_labels=None, save_path=None, file_name=None
+):
+    """Grouped exergetic efficiencies per component (own figure).
+    Same behaviour and output file as before; see _draw_exergetic_efficiencies."""
+    df_list, cycle_labels = _prepare(exergy_destruction, cycle_labels)
+    if df_list is None:
+        return None, None
+
+    fig, ax = plt.subplots(
+        figsize=PLOT_STYLE["figure"]["figsize"], dpi=PLOT_STYLE["figure"]["dpi"]
+    )
+    if not _draw_exergetic_efficiencies(ax, df_list, cycle_labels):
+        plt.close(fig)
+        return None, None
+    fig.patch.set_facecolor(PLOT_STYLE["figure"]["facecolor"])
+    _save_figure(fig, save_path, file_name, "exergetic_efficiencies")
+    return fig, ax
+
+
+def plot_exergy_plots(
+    exergy_destruction,
+    cycle_labels=None,
+    plots=("destruction", "efficiencies"),
+    combined=True,
+    layout="horizontal",
+    save_path=None,
+    file_name=None,
+    dpi=None,
+):
+    """
+    Produce one or several of the exergy plots, either on a single shared
+    figure or as separate figures.
+
+    Parameters
+    ----------
+    exergy_destruction, cycle_labels :
+        As in plot_exergy_destruction_stacked.
+    plots : str or sequence of str
+        Which plots to produce, in panel order. Available keys:
+        "destruction"  -> stacked exergy destruction per cycle
+        "efficiencies" -> exergetic efficiency per component
+        e.g. plots="efficiencies" or plots=["efficiencies", "destruction"].
+    combined : bool
+        True: all selected plots as panels (a), (b), ... of ONE figure,
+        saved as <file_name>_exergy_combined.png. False: one separate figure
+        (and file) per plot, exactly like calling the single functions.
+    layout : "horizontal" | "vertical"
+        Panel arrangement when combined (side by side or stacked).
+    save_path, file_name :
+        Where / under which base name to save.
+    dpi : int, optional
+        Resolution of the combined figure (default: PLOT_STYLE dpi).
+
+    Returns
+    -------
+    fig, axes  (combined: one figure and an array of axes)
+    list of (fig, ax)  (not combined)
+    """
+    plots = [plots] if isinstance(plots, str) else list(plots)
+    unknown = [p for p in plots if p not in _EXERGY_PLOTS]
+    if unknown:
+        raise ValueError(
+            f"Unknown plot(s) {unknown}; choose from {list(_EXERGY_PLOTS)}."
+        )
+    if layout not in ("horizontal", "vertical"):
+        raise ValueError("layout must be 'horizontal' or 'vertical'.")
+
+    df_list, cycle_labels = _prepare(exergy_destruction, cycle_labels)
+    if df_list is None:
+        return None, None
+
+    if not combined or len(plots) == 1:
+        singles = {
+            "destruction": plot_exergy_destruction_stacked,
+            "efficiencies": plot_exergetic_efficiencies,
+        }
+        return [
+            singles[p](df_list, cycle_labels, save_path=save_path, file_name=file_name)
+            for p in plots
+        ]
+
+    n = len(plots)
+    w, h = PLOT_STYLE["figure"]["figsize"]
+    dpi = dpi or PLOT_STYLE["figure"]["dpi"]
+    fig, axes = plt.subplots(
+        1 if layout == "horizontal" else n,
+        n if layout == "horizontal" else 1,
+        figsize=(w * n, h * 2) if layout == "horizontal" else (w, h * n * 1.15),
+        dpi=dpi,
+        squeeze=False,
+    )
+    axes = axes.ravel()
+
+    for k, (ax, key) in enumerate(zip(axes, plots)):
+        draw, _ = _EXERGY_PLOTS[key]
+        draw(ax, df_list, cycle_labels)
+        ax.set_title(
+            f"({chr(ord('a') + k)})", fontsize=PLOT_STYLE["fonts"]["title"], pad=10
+        )
+
+    fig.patch.set_facecolor(PLOT_STYLE["figure"]["facecolor"])
+    fig.tight_layout()
+    _save_figure(fig, save_path, file_name, "exergy_combined", dpi=dpi)
+    return fig, axes

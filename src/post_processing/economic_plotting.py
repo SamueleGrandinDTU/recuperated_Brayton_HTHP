@@ -23,6 +23,14 @@ _LINEWIDTH = PLOT_STYLE["lines_and_markers"]["linewidth"]
 _STYLE_WIDTH, _STYLE_HEIGHT = PLOT_STYLE["figure"]["figsize"]
 _FIGSIZE = (_STYLE_WIDTH * 2, _STYLE_HEIGHT)
 
+# Resolution of the operational strategy figure (higher than the project-wide
+# PLOT_STYLE dpi, which is tuned for the compact diagrams).
+_DPI = 300
+
+# The time axis is labelled every 24 h (daily) as long as the period is at
+# most this many days long; longer periods keep matplotlib's automatic ticks.
+_MAX_DAILY_TICK_DAYS = 14
+
 
 def _plant_E_TES(plant) -> float:
     """Read the TES capacity off `result.plant`, which may be a `Plant`
@@ -59,41 +67,14 @@ def _style_axes(ax) -> None:
     )
 
 
-def plot_operational_strategy(
-    result,
-    file_name: Optional[str] = None,
-    save_path: Optional[Union[str, Path]] = None,
-):
-    """Plot price, demand, HTHP schedule and TES state of charge for one
-    ``optimize_operational_strategy`` result, styled per ``PLOT_STYLE``.
-
-    Parameters
-    ----------
-    result : OperationalStrategyResult
-        The object returned by ``optimize_operational_strategy``. Only
-        its attributes are used (time, el_price, Q_demand, Q_HTHP,
-        E_TES, plant, market) - no import of that class is needed here.
-    file_name : str, optional
-        Name of the plant configuration, e.g. "standalone_base_recup_hthp".
-        The figure is saved as ``<file_name>_operational_strategy.png``.
-        Required when `save_path` is given.
-    save_path : str | Path, optional
-        Directory the figure is saved in (created if missing; dpi and
-        facecolor per ``PLOT_STYLE["figure"]``). If None, nothing is saved.
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-    """
+def _draw_operational_strategy(ax1, result, power_axis_max=None):
+    """Draw price, demand, HTHP schedule and TES state of charge of one
+    result on `ax1` (price, left axis) and on a twin axis (power / energy,
+    right). The right axis runs from 0 to `power_axis_max` (default: the
+    plant's TES capacity, at least 1.2). Returns (ax2, legend handles)."""
 
     t = list(range(len(result.time)))
     E_TES_MAX = _plant_E_TES(result.plant)
-
-    fig, ax1 = plt.subplots(
-        figsize=_FIGSIZE,
-        dpi=PLOT_STYLE["figure"]["dpi"],
-        facecolor=PLOT_STYLE["figure"]["facecolor"],
-    )
 
     line1 = ax1.step(
         t,
@@ -105,8 +86,6 @@ def plot_operational_strategy(
         label="Electricity price",
         zorder=3,
     )
-    ax1.set_xlabel("Time [h]", fontsize=_FONTS["label"])
-    ax1.set_ylabel("Electricity price [€/MWh]", fontsize=_FONTS["label"])
     _style_axes(ax1)
 
     ax2 = ax1.twinx()
@@ -117,7 +96,7 @@ def plot_operational_strategy(
         step="post",
         color=_COLORS["process"],
         alpha=0.25,
-        label=r"$Q_{\mathrm{demand}}$",
+        label=r"$\dot{Q}_{\mathrm{demand}}$",
         zorder=1,
     )
 
@@ -128,7 +107,7 @@ def plot_operational_strategy(
         color=_COLORS["fuel"],
         linewidth=_LINEWIDTH,
         linestyle="-",
-        label=r"$Q_{\mathrm{HTHP}}$",
+        label=r"$\dot{Q}_{\mathrm{HTHP}}$",
         zorder=3,
     )
 
@@ -141,20 +120,161 @@ def plot_operational_strategy(
         zorder=2,
     )
 
-    ax2.set_ylabel("Power / TES energy [MWth / MWhth]", fontsize=_FONTS["label"])
-    ax2.set_ylim(0, max(E_TES_MAX, 1.2))
+    ax2.set_ylim(
+        0, power_axis_max if power_axis_max is not None else max(E_TES_MAX, 1.2)
+    )
     _style_axes(ax2)
 
-    line2 = ax2.collections[-1]
-    lines = line1 + [line2] + line3 + line4
-    labels = [line.get_label() for line in lines]
-    ax1.legend(lines, labels, loc="upper left", fontsize=_FONTS["legend"])
+    # daily time ticks: 0, 24, 48, 72, ...
+    n_hours = len(result.time)
+    if n_hours <= 24 * _MAX_DAILY_TICK_DAYS:
+        ax1.set_xticks(range(0, n_hours + 1, 24))
 
-    fig.suptitle(
-        f"Optimal HTHP-TES Scheduling ({result.market})",
-        fontsize=_FONTS["title"],
+    line2 = ax2.collections[-1]
+    return ax2, line1 + [line2] + line3 + line4
+
+
+def plot_operational_strategy(
+    result,
+    file_name: Optional[str] = None,
+    save_path: Optional[Union[str, Path]] = None,
+    row_labels=None,
+    col_labels=None,
+    power_axis_max: Optional[float] = 8.5,
+    dpi: int = _DPI,
+):
+    """Plot price, demand, HTHP schedule and TES state of charge for one or
+    several ``optimize_operational_strategy`` results, styled per
+    ``PLOT_STYLE``.
+
+    With one result the figure is a single plot. With several results the
+    figure is a grid of subplots, one per result, in the order given, each
+    labelled (a), (b), (c), ... plus its name.
+
+    Parameters
+    ----------
+    result : OperationalStrategyResult, or list of them, or list of lists
+        The object returned by ``optimize_operational_strategy``. Only
+        its attributes are used (time, el_price, Q_demand, Q_HTHP,
+        E_TES, plant, market) - no import of that class is needed here.
+        - one result: single plot.
+        - list of lists ``[[a, b], [c, d]]``: grid, one row per inner list
+          (here a is top-left, b top-right, c bottom-left, d bottom-right).
+        - flat list ``[a, b, c]``: one row of subplots.
+        In a grid the price and time axes are shared (same period and
+        market, so the panels are directly comparable); the power / energy
+        axis has the same range in every panel (see `power_axis_max`).
+    file_name : str, optional
+        Name of the plant configuration, e.g. "standalone_base_recup_hthp".
+        The figure is saved as ``<file_name>_operational_strategy.png``.
+        Required when `save_path` is given.
+    save_path : str | Path, optional
+        Directory the figure is saved in (created if missing; facecolor per
+        ``PLOT_STYLE["figure"]``). If None, nothing is saved.
+    row_labels, col_labels : list of str, optional
+        Labels of the rows / columns of a grid; each panel is titled
+        "(a) <column> - <row>". Defaults for a 2x2 grid: rows "Fixed heat
+        demand" / "Free heat demand", columns "Standalone" /
+        "TES-Integrated". Without labels (other shapes) panels are titled
+        just "(a)", "(b)", ...
+    power_axis_max : float, optional
+        Upper limit [MWth / MWhth] of the power / TES energy axis, the same
+        in every panel (and in the single plot), so all figures are directly
+        comparable (default 8.5). None: each panel is scaled to its own
+        plant's TES capacity.
+    dpi : int
+        Resolution of the figure and of the saved file (default 300).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+    """
+
+    # normalise the input to a grid of results: grid[row][col]
+    if isinstance(result, (list, tuple)):
+        if not result:
+            raise ValueError("`result` is empty.")
+        if isinstance(result[0], (list, tuple)):
+            grid = [list(row) for row in result]
+        else:
+            grid = [list(result)]
+    else:
+        grid = [[result]]
+
+    n_rows, n_cols = len(grid), len(grid[0])
+    if any(len(row) != n_cols for row in grid):
+        raise ValueError("All rows of `result` need the same number of results.")
+    single = n_rows * n_cols == 1
+
+    if (n_rows, n_cols) == (2, 2):
+        row_labels = row_labels or ["Fixed heat demand", "Free heat demand"]
+        col_labels = col_labels or ["Standalone", "TES-Integrated"]
+    if row_labels is not None and len(row_labels) != n_rows:
+        raise ValueError("`row_labels` must have one label per row.")
+    if col_labels is not None and len(col_labels) != n_cols:
+        raise ValueError("`col_labels` must have one label per column.")
+
+    figsize = (
+        _FIGSIZE if single else (_STYLE_WIDTH * 1.25 * n_cols, _STYLE_HEIGHT * n_rows)
     )
-    fig.tight_layout()
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=figsize,
+        dpi=dpi,
+        facecolor=PLOT_STYLE["figure"]["facecolor"],
+        sharex=True,
+        sharey=True,
+        squeeze=False,
+    )
+
+    handles = None
+    for r in range(n_rows):
+        for c in range(n_cols):
+            ax1 = axes[r, c]
+            ax2, panel_handles = _draw_operational_strategy(
+                ax1, grid[r][c], power_axis_max
+            )
+            handles = handles or panel_handles
+
+            if r == n_rows - 1:
+                ax1.set_xlabel("Time [h]", fontsize=_FONTS["label"])
+            if c == 0:
+                ax1.set_ylabel("Electricity price [€/MWh]", fontsize=_FONTS["label"])
+            if c == n_cols - 1:
+                ax2.set_ylabel(
+                    "Power / TES energy [MWth / MWhth]", fontsize=_FONTS["label"]
+                )
+
+            if not single:
+                letter = f"({chr(ord('a') + r * n_cols + c)})"
+                name = " - ".join(
+                    x
+                    for x in (
+                        col_labels[c] if col_labels else None,
+                        row_labels[r] if row_labels else None,
+                    )
+                    if x
+                )
+                ax1.set_title(
+                    f"{letter} {name}" if name else letter, fontsize=_FONTS["label"]
+                )
+
+    labels = [h.get_label() for h in handles]
+    if single:
+        axes[0, 0].legend(handles, labels, loc="upper left", fontsize=_FONTS["legend"])
+        fig.tight_layout()
+    else:
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            bbox_to_anchor=(0.5, 0.0),
+            ncol=len(handles),
+            fontsize=_FONTS["legend"],
+            framealpha=0.95,
+        )
+        fig.tight_layout(rect=(0, 0.05, 1, 1))
 
     if save_path is not None:
         if file_name is None:
@@ -163,7 +283,7 @@ def plot_operational_strategy(
         save_path.mkdir(parents=True, exist_ok=True)
         fig.savefig(
             save_path / f"{file_name}_operational_strategy.png",
-            dpi=PLOT_STYLE["figure"]["dpi"],
+            dpi=dpi,
             bbox_inches="tight",
             facecolor=PLOT_STYLE["figure"]["facecolor"],
         )

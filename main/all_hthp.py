@@ -14,6 +14,11 @@ from src import (
     plot_exergy_destruction_stacked,
     plot_component_cost_stacked,
     plot_exergetic_efficiencies,
+    plot_exergy_plots,
+    plot_lcoh_scenarios_stacked,
+    plot_delta_lcoh_analysis,
+    plot_ts_diagram,
+    plot_hx_diagram,
 )
 
 # One entry per cycle: "file_name" matches the file_name each plant script
@@ -47,7 +52,17 @@ cost_csv_paths = [
     RESULTS_DIR / "components_cost" / f"{cycle['file_name']}_components_cost.csv"
     for cycle in CYCLES
 ]
+lcoh_csv_paths = [
+    RESULTS_DIR / "lcoh" / f"{cycle['file_name']}_lcoh.csv" for cycle in CYCLES
+]
 cycle_labels = [cycle["label"] for cycle in CYCLES]
+states_csv_paths = [
+    RESULTS_DIR / "connections" / f"{cycle['file_name']}_connections.csv"
+    for cycle in CYCLES
+]
+hx_csv_paths = [
+    RESULTS_DIR / "hx" / f"{cycle['file_name']}_hx_table.csv" for cycle in CYCLES
+]
 
 # 1. Exergy destruction, all four cycles side by side
 plot_exergy_destruction_stacked(
@@ -71,4 +86,64 @@ plot_exergetic_efficiencies(
     cycle_labels=cycle_labels,
     save_path=FIGURES_DIR,
     file_name="all_hthp",
+)
+
+plot_exergy_plots(
+    exergy_csv_paths,
+    cycle_labels=cycle_labels,
+    plots=["destruction", "efficiencies"],
+    combined=True,
+    layout="horizontal",
+    save_path=FIGURES_DIR,
+    file_name="all_hthp",
+)
+
+# 4. LCOH scenarios plot for all four cycles
+plot_lcoh_scenarios_stacked(
+    lcoh_csv_paths,
+    lcoh_kind="DK1 fixed",
+    cycle_labels=cycle_labels,
+    save_path=FIGURES_DIR,
+    file_name="all_hthp",
+)
+
+# 5. Delta LCOH (TES-integrated - standalone) per scenario, market and heat demand
+plot_delta_lcoh_analysis(
+    [
+        [lcoh_csv_paths[0], lcoh_csv_paths[2]],  # base
+        [lcoh_csv_paths[1], lcoh_csv_paths[3]],  # intercooled
+    ],
+    pair_labels=["Base", "Intercooled"],
+    save_path=FIGURES_DIR,
+    file_name="all_hthp",
+)
+
+# 6. T-s diagrams, base vs intercooled on the same graph, and Standalone vs TES-Integrated for each cycle on the same graph
+plot_ts_diagram(
+    [states_csv_paths[0], states_csv_paths[1]],
+    cycle_labels=["Standalone Base Rec.", "Standalone Intercooled Rec."],
+    save_path=FIGURES_DIR,
+    file_name="standalone_hthp",
+)
+
+plot_ts_diagram(
+    [
+        [states_csv_paths[0], states_csv_paths[2]],  # base: standalone, TES
+        [states_csv_paths[1], states_csv_paths[3]],  # intercooled: standalone, TES
+    ],
+    cycle_labels=[
+        ["Standalone Base Rec.", "TES-Integrated Base Rec."],
+        ["Standalone Intercooled Rec.", "TES-Integrated Intercooled Rec."],
+    ],
+    save_path=FIGURES_DIR,
+    file_name="all_hthp",
+)
+
+plot_hx_diagram(
+    [
+        [hx_csv_paths[0]],
+        [hx_csv_paths[1]],
+    ],
+    save_path=FIGURES_DIR,
+    file_name="standalone_hthp",
 )

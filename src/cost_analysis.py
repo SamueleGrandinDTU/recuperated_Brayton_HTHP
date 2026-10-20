@@ -60,6 +60,10 @@ _HX_U_VALUES = {
 # agree on the currency.
 _USD_TO_EUR = 0.92
 
+# HITEC molten salt (TES storage medium). The price is already in €, so no
+# USD conversion applies.
+_HITEC_COST_EUR_PER_KG = 1.1
+
 
 def calculate_component_cost(
     plant,
@@ -136,6 +140,11 @@ def calculate_component_cost(
         f"U = {_HX_U_VALUES['recuperator']} W/m²K"
     )
     print(f"  Sink-type HX: gas-to-liquid, 1 bar, U = {_HX_U_VALUES['sink']} W/m²K")
+
+    print(
+        f"TES salt: HITEC, {_HITEC_COST_EUR_PER_KG} €/kg x salt inventory "
+        "(mass of the hot tank)"
+    )
 
     rows = []
 
@@ -219,6 +228,26 @@ def calculate_component_cost(
                 "Type": "Tank",
                 "Basis parameter": "Volume [m³]",
                 "Basis value": round(V_m3, 1),
+                "Cost [M€]": round(cost_M, 3),
+            }
+        )
+
+    # HITEC salt inventory: the salt circulates between the hot and cold tank,
+    # so it is counted once, using the mass of the hot tank (the first Tank
+    # whose label contains "hot"; if none does, the first Tank in the list).
+    tanks = [c for c in (external_components or []) if c.__class__.__name__ == "Tank"]
+    if tanks:
+        hot_tanks = [t for t in tanks if "hot" in str(t.label).lower()]
+        salt_tank = hot_tanks[0] if hot_tanks else tanks[0]
+        M_kg = abs(salt_tank.M.val)
+        cost_M = M_kg * _HITEC_COST_EUR_PER_KG / 1e6
+
+        rows.append(
+            {
+                "Component": "HITEC salt",
+                "Type": "Salt",
+                "Basis parameter": "Mass [kg]",
+                "Basis value": round(M_kg, 1),
                 "Cost [M€]": round(cost_M, 3),
             }
         )

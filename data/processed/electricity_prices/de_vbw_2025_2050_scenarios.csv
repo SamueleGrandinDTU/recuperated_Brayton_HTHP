@@ -1,0 +1,27 @@
+year,basis,low_EUR_per_MWh,central_EUR_per_MWh,high_EUR_per_MWh,low_factor_vs_2025,central_factor_vs_2025,high_factor_vs_2025
+2025,actual (user data),89.32,89.32,89.32,1.000,1.000,1.000
+2026,vbw/Prognos 2024 yearly value,82.43,99.59,226.38,0.923,1.115,2.535
+2027,vbw/Prognos 2024 yearly value,76.72,98.05,202.04,0.859,1.098,2.262
+2028,vbw/Prognos 2024 yearly value,65.88,90.17,170.41,0.738,1.009,1.908
+2029,vbw/Prognos 2024 yearly value,59.05,86.98,140.50,0.661,0.974,1.573
+2030,vbw/Prognos 2024 yearly value,53.58,86.23,119.51,0.600,0.965,1.338
+2031,vbw/Prognos 2024 yearly value,54.67,87.12,120.48,0.612,0.975,1.349
+2032,vbw/Prognos 2024 yearly value,54.51,86.26,119.06,0.610,0.966,1.333
+2033,vbw/Prognos 2024 yearly value,54.51,85.72,117.29,0.610,0.960,1.313
+2034,vbw/Prognos 2024 yearly value,54.56,85.15,115.58,0.611,0.953,1.294
+2035,vbw/Prognos 2024 yearly value,55.00,84.64,114.82,0.616,0.948,1.286
+2036,vbw/Prognos 2024 yearly value,55.75,85.52,119.66,0.624,0.957,1.340
+2037,vbw/Prognos 2024 yearly value,57.78,88.27,126.44,0.647,0.988,1.416
+2038,vbw/Prognos 2024 yearly value,58.77,89.19,130.76,0.658,0.999,1.464
+2039,vbw/Prognos 2024 yearly value,58.89,88.83,133.72,0.659,0.994,1.497
+2040,vbw/Prognos 2024 yearly value,59.04,88.27,135.43,0.661,0.988,1.516
+2041,vbw/Prognos 2024 yearly value,56.92,83.69,126.57,0.637,0.937,1.417
+2042,vbw/Prognos 2024 yearly value,56.46,80.55,120.42,0.632,0.902,1.348
+2043,vbw/Prognos 2024 yearly value,53.36,76.61,112.17,0.597,0.858,1.256
+2044,vbw/Prognos 2024 yearly value,51.97,73.31,105.46,0.582,0.821,1.181
+2045,vbw/Prognos 2024 yearly value,51.14,73.07,103.51,0.573,0.818,1.159
+2046,linear interpolation 2045-2050,51.26,72.49,102.07,0.574,0.812,1.143
+2047,linear interpolation 2045-2050,51.38,71.90,100.63,0.575,0.805,1.127
+2048,linear interpolation 2045-2050,51.50,71.32,99.20,0.577,0.798,1.111
+2049,linear interpolation 2045-2050,51.61,70.73,97.76,0.578,0.792,1.094
+2050,linear interpolation 2045-2050,51.73,70.14,96.32,0.579,0.785,1.078

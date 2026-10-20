@@ -7,11 +7,14 @@ Currently contains ``calculate_future_costs``: it takes the annual
 electricity cost computed for the reference year 2025 (e.g. the result of
 ``optimize_operational_strategy``) and extends it to the future by
 multiplying it, year by year, with the electricity-price scaling factors
-of a forecast source (currently "Energinet": low / central / high
-scenarios, interpolated between the 2030, 2040 and 2050 anchors).
+of the market's forecast (low / central / high scenarios, interpolated
+between the 2030, 2040 and 2050 anchors):
+
+    market "DK1"     -> Energinet forecast
+    market "DE" -> vbw forecast
 
 ``perform_lcoh_analysis`` then turns those yearly costs into a levelized
-cost of heat for each scenario.
+cost of heat for each scenario, for either market.
 
 Standalone by design: nothing is imported from ``plant_operation``;
 result objects are read by duck typing.
@@ -30,11 +33,59 @@ _DATA_DIR = (
 # "<scenario>_factor_vs_2025" column per scenario (low / central / high).
 SCENARIO_FILES = {
     "Energinet": "dk1_energinet_2025_2050_scenarios.csv",
+    "vbw": "de_vbw_2025_2050_scenarios.csv",
 }
+
+# Market (same names as in optimize_operational_strategy) -> forecast source.
+MARKET_SOURCES = {
+    "DK1": "Energinet",
+    "DE": "vbw",
+}
+DEFAULT_MARKET = "DK1"
 
 SCENARIOS = ("low", "central", "high")
 
 REFERENCE_YEAR = 2025
+
+
+def _resolve_market(market, result=None):
+    """Return (market, forecast source) for the requested market.
+
+    - `market` None: the market of `result` (an optimize_operational_strategy
+      result) if one is given, otherwise DK1.
+    - Names are matched case-insensitively; the forecast source names
+      ("Energinet", "vbw") are accepted too.
+    - If `result` carries a market and a different one is requested, an
+      error is raised: the 2025 cost would belong to one market and the
+      forecast factors to another.
+    """
+
+    result_market = getattr(result, "market", None)
+
+    requested = market
+    if requested is None:
+        requested = result_market if result_market is not None else DEFAULT_MARKET
+
+    lookup = {m.lower(): m for m in MARKET_SOURCES}
+    lookup.update({src.lower(): m for m, src in MARKET_SOURCES.items()})
+
+    resolved = lookup.get(str(requested).strip().lower())
+    if resolved is None:
+        raise ValueError(
+            f"Unknown market '{requested}'. Available markets: "
+            f"{sorted(MARKET_SOURCES)}"
+        )
+
+    if market is not None and result_market is not None:
+        result_resolved = lookup.get(str(result_market).strip().lower())
+        if result_resolved != resolved:
+            raise ValueError(
+                f"The 2025 cost was calculated for the {result_market} market "
+                f"but market='{market}' was requested - the forecast of one "
+                "market cannot be applied to the cost of another."
+            )
+
+    return resolved, MARKET_SOURCES[resolved]
 
 
 def _load_scenario_factors(source: str) -> pd.DataFrame:
@@ -62,9 +113,11 @@ def _load_scenario_factors(source: str) -> pd.DataFrame:
     return factors
 
 
-def _future_costs(reference_cost, source: str):
-    """Silent core of ``calculate_future_costs``: returns the DataFrame and
-    the reference cost as a float."""
+def _future_costs(reference_cost, market=None):
+    """Silent core of ``calculate_future_costs``: returns the DataFrame,
+    the reference cost as a float, and the resolved market and source."""
+
+    market, source = _resolve_market(market, reference_cost)
 
     if hasattr(reference_cost, "total_cost"):
         reference_cost = reference_cost.total_cost
@@ -75,10 +128,10 @@ def _future_costs(reference_cost, source: str):
     costs = factors * reference_cost
     costs.index.name = "Year"
     costs.columns = [f"{s.capitalize()} [EUR]" for s in SCENARIOS]
-    return costs, reference_cost
+    return costs, reference_cost, market, source
 
 
-def calculate_future_costs(reference_cost, source: str = "Energinet") -> pd.DataFrame:
+def calculate_future_costs(reference_cost, market: str = None) -> pd.DataFrame:
     """Extend the 2025 annual electricity cost to 2026-2050, per scenario.
 
     For every year and every scenario (low / central / high):
@@ -91,8 +144,10 @@ def calculate_future_costs(reference_cost, source: str = "Energinet") -> pd.Data
         Full-year 2025 electricity cost [EUR] - either the number itself,
         or the ``OperationalStrategyResult`` returned by
         ``optimize_operational_strategy`` (its `total_cost` is used).
-    source : {"Energinet"}
-        Forecast source providing the scaling factors.
+    market : {"DK1", "DE"}, optional
+        Market the cost belongs to; it selects the forecast (DK1:
+        Energinet, DE: vbw). Default: the market of the result if
+        one is passed as `reference_cost`, otherwise DK1.
 
     Returns
     -------
@@ -101,12 +156,12 @@ def calculate_future_costs(reference_cost, source: str = "Energinet") -> pd.Data
         The table is also printed in the terminal.
     """
 
-    costs, reference_cost = _future_costs(reference_cost, source)
+    costs, reference_cost, market, source = _future_costs(reference_cost, market)
 
     print(
         f"Future costs calculated starting from {REFERENCE_YEAR} "
-        f"(reference cost: {reference_cost:,.2f} EUR) with the {source} "
-        "forecasting assumptions."
+        f"(reference cost: {reference_cost:,.2f} EUR) for the {market} market "
+        f"with the {source} forecasting assumptions."
     )
     print(costs.to_string(float_format=lambda v: f"{v:,.2f}"))
 
@@ -176,7 +231,7 @@ def perform_lcoh_analysis(
     cost_2025=None,
     yearly_heat_production=None,
     operating_hours=None,
-    source: str = "Energinet",
+    market: str = None,
     discount_rate: float = 0.05,
     degradation_rate: float = 0.002,
     decommissioning: float = 0.015,
@@ -204,6 +259,7 @@ def perform_lcoh_analysis(
         2025 electricity cost   <- operational_result   | cost_2025
         yearly heat production  <- operational_result   | yearly_heat_production
         operating hours         <- operational_result   | operating_hours
+        market                  <- operational_result   | market
 
     Parameters
     ----------
@@ -216,7 +272,7 @@ def perform_lcoh_analysis(
     operational_result : OperationalStrategyResult, optional
         Output of ``optimize_operational_strategy`` for a full year. Used:
         `total_cost` (2025 electricity cost), the sum of `Q_demand`
-        (delivered heat) and `total_operating_hours`.
+        (delivered heat), `total_operating_hours` and `market`.
     capex : float, optional
         Total initial investment [EUR].
     cost_2025 : float, optional
@@ -225,9 +281,11 @@ def perform_lcoh_analysis(
         Delivered heat in the first year E_load [MWh].
     operating_hours : float, optional
         Annual operating hours t_op [h], used for the labour cost.
-    source : {"Energinet"}
-        Reference electricity-price assumptions (forecast scenarios), as
-        in ``calculate_future_costs``.
+    market : {"DK1", "Germany"}, optional
+        Market of the analysis; it selects the electricity-price forecast
+        (DK1: Energinet, Germany: vbw), as in ``calculate_future_costs``.
+        Default: the market of `operational_result` if given, otherwise
+        DK1. If both are given they must agree.
     discount_rate : float
         d, default 5 %.
     degradation_rate : float
@@ -236,7 +294,7 @@ def perform_lcoh_analysis(
         Decommissioning cost as a fraction of CAPEX, default 1.5 %.
     future_costs : DataFrame, optional
         Output of ``calculate_future_costs``. If None, it is calculated
-        here from the 2025 cost with the `source` assumptions.
+        here from the 2025 cost with the `market` forecast.
 
     Returns
     -------
@@ -245,11 +303,7 @@ def perform_lcoh_analysis(
         The year-by-year tables and the LCOH values are also printed.
     """
 
-    if source not in SCENARIO_FILES:
-        raise ValueError(
-            f"Unknown forecast source '{source}'. Available sources: "
-            f"{sorted(SCENARIO_FILES)}"
-        )
+    market, source = _resolve_market(market, operational_result)
 
     def missing(name, from_result):
         return ValueError(
@@ -299,13 +353,13 @@ def perform_lcoh_analysis(
         raise ValueError("The yearly heat production must be positive.")
 
     if future_costs is None:
-        future_costs, _ = _future_costs(cost_value, source)
+        future_costs, _, _, _ = _future_costs(cost_value, market)
 
     op_years = [FIRST_OPERATION_YEAR + n - 1 for n in range(1, lifetime + 1)]
-    missing = [y for y in op_years if y not in future_costs.index]
-    if missing:
+    missing_years = [y for y in op_years if y not in future_costs.index]
+    if missing_years:
         raise ValueError(
-            f"No future electricity cost available for year(s) {missing}: the "
+            f"No future electricity cost available for year(s) {missing_years}: the "
             f"forecast covers {future_costs.index.min()}-{future_costs.index.max()}."
         )
 
@@ -315,10 +369,10 @@ def perform_lcoh_analysis(
     d = discount_rate
 
     print(
-        f"LCOH analysis: CAPEX {capex_value:,.0f} EUR | lifetime {lifetime} y "
-        f"(operation {op_years[0]}-{op_years[-1]}) | discount rate {d:.1%} | "
-        f"degradation {degradation_rate:.1%}/y | decommissioning "
-        f"{c_decomm:,.0f} EUR ({decommissioning:.1%} of CAPEX)"
+        f"LCOH analysis ({market} market): CAPEX {capex_value:,.0f} EUR | "
+        f"lifetime {lifetime} y (operation {op_years[0]}-{op_years[-1]}) | "
+        f"discount rate {d:.1%} | degradation {degradation_rate:.1%}/y | "
+        f"decommissioning {c_decomm:,.0f} EUR ({decommissioning:.1%} of CAPEX)"
     )
     print(
         f"Yearly heat production: {heat:,.1f} MWh | operating hours: "
@@ -425,9 +479,9 @@ def perform_lcoh_analysis(
         f"discounted heat production"
     )
     print(
-        f"Electricity prices: {source} forecast, 2025 reference cost "
-        f"{cost_value:,.0f} EUR | operation {op_years[0]}-{op_years[-1]} "
-        f"({lifetime} years)"
+        f"Electricity prices: {market} market, {source} forecast, 2025 "
+        f"reference cost {cost_value:,.0f} EUR | operation "
+        f"{op_years[0]}-{op_years[-1]} ({lifetime} years)"
     )
     print(
         f"CAPEX {capex_value:,.0f} EUR | O&M {OM_FRACTION_OF_CAPEX:.0%} of CAPEX "

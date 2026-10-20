@@ -20,6 +20,7 @@ from src import (
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
     generate_connections_table,
+    save_hx_table,
     get_exergy_analysis,
     calculate_component_cost,
     optimize_operational_strategy,
@@ -69,6 +70,17 @@ generate_connections_table(
     save_path="results/tables/connections",
 )
 
+
+save_hx_table(
+    [
+        plant_standalone_interc_recup.comps.loc["sink 1", "object"],
+        plant_standalone_interc_recup.comps.loc["sink 2", "object"],
+    ],
+    file_name="standalone_interc_recup_hthp",
+    save_path="results/tables/hx",
+)
+
+
 # 5. Perform exergy analysis, generate the exergy analysis table
 exergy_results = get_exergy_analysis(
     plant_standalone_interc_recup,
@@ -83,17 +95,66 @@ component_cost = calculate_component_cost(
     save_path="results/tables/components_cost",
 )
 
-# 7. Optimize the operational strategy and plot the results (no TES)
-result = optimize_operational_strategy(
+# 7. Optimize the operational strategy on the DK1 market and perform the LCOH analysis (fixed demand profile)
+result_dk1 = optimize_operational_strategy(
     plant_standalone_interc_recup,
     E_TES=0.0,
     market="DK1",
     year=2025,
+    heat_demand_profile="fixed",
 )
 
-# 8. Perform the LCOH analysis
 perform_lcoh_analysis(
     lifetime=25,
     component_cost=component_cost,
-    operational_result=result,
+    operational_result=result_dk1,
+    market="DK1",
+)
+
+# 8. Optimize the operational strategy on the DE market and perform the LCOH analysis (fixed demand profile)
+result_de = optimize_operational_strategy(
+    plant_standalone_interc_recup,
+    E_TES=0.0,
+    market="DE",
+    year=2025,
+    heat_demand_profile="fixed",
+)
+
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result_de,
+    market="DE",
+)
+
+# 9. Optimize the operational strategy on the DK1 market and perform the LCOH analysis (free demand profile)
+result_dk1 = optimize_operational_strategy(
+    plant_standalone_interc_recup,
+    E_TES=0.0,
+    market="DK1",
+    year=2025,
+    heat_demand_profile="free",
+)
+
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result_dk1,
+    market="DK1",
+)
+
+# 10. Optimize the operational strategy on the DE market and perform the LCOH analysis (free demand profile)
+result_de = optimize_operational_strategy(
+    plant_standalone_interc_recup,
+    E_TES=0.0,
+    market="DE",
+    year=2025,
+    heat_demand_profile="free",
+)
+
+perform_lcoh_analysis(
+    lifetime=25,
+    component_cost=component_cost,
+    operational_result=result_de,
+    market="DE",
 )
