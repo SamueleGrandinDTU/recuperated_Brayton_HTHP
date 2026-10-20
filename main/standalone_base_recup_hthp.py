@@ -21,6 +21,7 @@ from src import (
     generate_performance_parameters_table,
     generate_sizing_parameters_table,
     generate_connections_table,
+    save_hx_table,
     get_exergy_analysis,
     validate_plant,
     calculate_component_cost,
@@ -85,6 +86,12 @@ generate_connections_table(
     plant_standalone_base_recup,
     file_name="standalone_base_recup_hthp",
     save_path="results/tables/connections",
+)
+
+save_hx_table(
+    plant_standalone_base_recup.comps.loc["sink", "object"],
+    file_name="standalone_base_recup_hthp",
+    save_path="results/tables/hx",
 )
 
 # 5. Perform exergy analysis and save results as csv files
