@@ -38,6 +38,9 @@ _COMPONENT_COLOR_ORDER = [
     ("sink 2", "#fc9272"),  # light red
     ("recuperator", "#8c564b"),  # brown
     ("interface hx", "#e377c2"),  # pink
+    ("tank 1", "#7f7f7f"),  # grey
+    ("tank 2", "#c7c7c7"),  # light grey
+    ("hitec salt", "#ff7f0e"),  # orange
 ]
 _COMPONENT_ORDER = [c for c, _ in _COMPONENT_COLOR_ORDER]
 _COMPONENT_COLORS = {c: color for c, color in _COMPONENT_COLOR_ORDER}
