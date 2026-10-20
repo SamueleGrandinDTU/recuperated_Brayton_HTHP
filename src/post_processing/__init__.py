@@ -11,6 +11,7 @@ from .cost_plotting import (
 from .exergy_plotting import (
     plot_exergy_destruction_stacked,
     plot_exergetic_efficiencies,
+    plot_exergy_plots,
 )
 
 from .hx_diagram import plot_hx_diagram
@@ -34,6 +35,7 @@ __all__ = [
     "plot_delta_lcoh_analysis",
     "plot_exergy_destruction_stacked",
     "plot_exergetic_efficiencies",
+    "plot_exergy_plots",
     "plot_hx_diagram",
     "save_table_as_csv",
     "save_table_as_png",
