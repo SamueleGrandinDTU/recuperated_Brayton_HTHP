@@ -22,6 +22,7 @@ result objects are read by duck typing.
 
 from dataclasses import dataclass
 from pathlib import Path
+import warnings
 
 import pandas as pd
 
@@ -79,10 +80,11 @@ def _resolve_market(market, result=None):
     if market is not None and result_market is not None:
         result_resolved = lookup.get(str(result_market).strip().lower())
         if result_resolved != resolved:
-            raise ValueError(
+            warnings.warn(
                 f"The 2025 cost was calculated for the {result_market} market "
-                f"but market='{market}' was requested - the forecast of one "
-                "market cannot be applied to the cost of another."
+                f"but the {market} forecast was requested - be careful: the "
+                "price forecast is not the one of the price zone analyzed.",
+                stacklevel=3,
             )
 
     return resolved, MARKET_SOURCES[resolved]
@@ -192,6 +194,7 @@ _CAPEX_NAMES = ("total_capex", "capex", "CAPEX", "total_cost", "total")
 class LCOHResult:
     lcoh: dict  # scenario -> LCOH [EUR/MWh]
     cash_flows: dict  # scenario -> year-by-year DataFrame
+    breakdown: dict = None  # scenario -> discounted costs [EUR] and heat [MWh]
 
 
 def _capex_value(capex) -> float:
@@ -513,4 +516,4 @@ def perform_lcoh_analysis(
         + " EUR/MWh"
     )
 
-    return LCOHResult(lcoh=lcoh_values, cash_flows=tables)
+    return LCOHResult(lcoh=lcoh_values, cash_flows=tables, breakdown=breakdown)
