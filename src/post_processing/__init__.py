@@ -6,6 +6,7 @@ from .cost_plotting import (
     plot_component_cost_stacked,
     plot_lcoh_scenarios_stacked,
     plot_delta_lcoh_analysis,
+    plot_lcoh_breakdown_stacked,
 )
 
 from .exergy_plotting import (
@@ -33,6 +34,7 @@ __all__ = [
     "plot_component_cost_stacked",
     "plot_lcoh_scenarios_stacked",
     "plot_delta_lcoh_analysis",
+    "plot_lcoh_breakdown_stacked",
     "plot_exergy_destruction_stacked",
     "plot_exergetic_efficiencies",
     "plot_exergy_plots",
