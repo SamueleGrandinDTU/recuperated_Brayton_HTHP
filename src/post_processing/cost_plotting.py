@@ -680,3 +680,215 @@ def plot_delta_lcoh_analysis(
         print(f"✓ Figure saved: {out}")
 
     return fig, axes
+
+
+# Colors of the LCOH cost categories, in stacking order (bottom to top):
+# CAPEX in blue, the three OPEX items in shades of orange, decommissioning grey
+_LCOH_CATEGORY_COLORS = {
+    "CAPEX": "#3182bd",  # blue
+    "Electricity": "#e6550d",  # dark orange
+    "O&M": "#fd8d3c",  # orange
+    "Labour": "#fdbe85",  # light orange
+    "Decommissioning": "#7f7f7f",  # grey
+}
+
+# A segment thinner than this fraction of the y axis gets its percentage
+# above the bar instead of inside the segment.
+_MIN_LABEL_HEIGHT = 0.045
+
+
+def plot_lcoh_breakdown_stacked(
+    breakdown,
+    panels=(("DK1 Energinet", "fixed"), ("DE Energinet", "fixed")),
+    panel_titles=("DK1", "DE"),
+    cycle_labels=None,
+    save_path=None,
+    file_name=None,
+):
+    """
+    Plot the contributions to the LCOH [EUR/MWh] of the central scenario as
+    one stacked bar per cycle (CAPEX, the OPEX items electricity, O&M and
+    labour, and decommissioning), with their percentage share of the LCOH.
+    One panel per entry of `panels`.
+
+    Parameters
+    ----------
+    breakdown : pd.DataFrame or str/Path
+        The central-scenario breakdown table (lcoh_central_breakdown.csv)
+        with the columns Cycle, Forecast, Demand, Electricity [EUR],
+        O&M [EUR], Labour [EUR], CAPEX [EUR], Decommissioning [EUR] and
+        Discounted heat [MWh].
+    panels : sequence of (forecast, demand)
+        One panel per entry, left to right, e.g. ("DK1 Energinet", "fixed").
+        Default: DK1 and DE with the Energinet forecast, fixed heat demand.
+    panel_titles : sequence of str
+        One title per panel; panels are labelled "(a) <title>", ...
+    cycle_labels : list of str, optional
+        x-axis labels, one per cycle in the order of the table. Default: the
+        "Cycle" names of the table.
+    save_path : str or Path, optional
+        Directory to save the figure.
+    file_name : str, optional
+        Base name; saved as ``<file_name>_lcoh_breakdown.png``.
+
+    Returns
+    -------
+    fig, axes
+    """
+    df = pd.read_csv(breakdown) if isinstance(breakdown, (str, Path)) else breakdown
+    if df is None or df.empty:
+        print("Warning: No data provided")
+        return None, None
+
+    panels = list(panels)
+    if panel_titles is None:
+        panel_titles = [f"{forecast} {demand}" for forecast, demand in panels]
+    if len(panel_titles) != len(panels):
+        raise ValueError("`panel_titles` must have one title per panel.")
+
+    cycles = list(dict.fromkeys(df["Cycle"]))
+    if cycle_labels is None:
+        cycle_labels = cycles
+    if len(cycle_labels) != len(cycles):
+        raise ValueError(
+            f"cycle_labels has {len(cycle_labels)} entries but "
+            f"{len(cycles)} cycles are in the table."
+        )
+    wrapped_labels = [textwrap.fill(lbl, width=_WRAP_WIDTH) for lbl in cycle_labels]
+    x = np.arange(len(cycles))
+
+    # LCOH contributions [EUR/MWh] of every cycle, per panel
+    contributions = []
+    for forecast, demand in panels:
+        rows = df[(df["Forecast"] == forecast) & (df["Demand"] == demand)]
+        if rows.empty:
+            raise ValueError(
+                f"No rows for forecast '{forecast}' and demand '{demand}'."
+            )
+        rows = rows.set_index("Cycle").loc[cycles]
+        heat = rows["Discounted heat [MWh]"]
+        contributions.append(
+            pd.DataFrame(
+                {
+                    "CAPEX": rows["CAPEX [EUR]"] / heat,
+                    "Electricity": rows["Electricity [EUR]"] / heat,
+                    "O&M": rows["O&M [EUR]"] / heat,
+                    "Labour": rows["Labour [EUR]"] / heat,
+                    "Decommissioning": rows["Decommissioning [EUR]"] / heat,
+                }
+            )
+        )
+
+    y_max = max(c.sum(axis=1).max() for c in contributions)
+    y_top = y_max * 1.25  # room above the bars for the totals
+
+    fig_w, fig_h = PLOT_STYLE["figure"]["figsize"]
+    fig, axes = plt.subplots(
+        1,
+        len(panels),
+        figsize=(fig_w * len(panels), fig_h),
+        dpi=PLOT_STYLE["figure"]["dpi"],
+        facecolor=PLOT_STYLE["figure"]["facecolor"],
+        sharey=True,
+        squeeze=False,
+    )
+    axes = axes[0]
+
+    for k, (ax, contrib, title) in enumerate(zip(axes, contributions, panel_titles)):
+        total = contrib.sum(axis=1).to_numpy()
+        bottoms = np.zeros(len(cycles))
+        thin = [[] for _ in cycles]  # thin segments: percentage goes above the bar
+
+        for category, color in _LCOH_CATEGORY_COLORS.items():
+            values = contrib[category].to_numpy()
+            ax.bar(
+                x,
+                values,
+                bottom=bottoms,
+                width=0.6,
+                color=color,
+                edgecolor=_COLORS["edge"],
+                linewidth=_LINEWIDTH,
+                alpha=0.85,
+            )
+            # percentage share of the LCOH inside each segment
+            for i, (xi, v, b, t) in enumerate(zip(x, values, bottoms, total)):
+                if v >= _MIN_LABEL_HEIGHT * y_top:
+                    ax.text(
+                        xi,
+                        b + v / 2,
+                        f"{100 * v / t:.1f} %",
+                        ha="center",
+                        va="center",
+                        fontsize=_FONTS["small_label"],
+                        color="white" if category == "CAPEX" else "black",
+                    )
+                else:
+                    name = "Decomm." if category == "Decommissioning" else category
+                    thin[i].append(f"{name} {100 * v / t:.1f} %")
+            bottoms += values
+
+        ax.set_ylim(0, y_top)
+        ax.set_xticks(x)
+        ax.set_xticklabels(
+            wrapped_labels,
+            ha="center",
+            rotation=0,
+            fontsize=_FONTS["small_label"],
+        )
+        ax.set_xlim(-0.75, len(cycles) - 1 + 0.75)
+        ax.set_xlabel("Cycle", fontsize=_FONTS["label"])
+        ax.set_title(f"({chr(ord('a') + k)}) {title}", fontsize=_FONTS["title"])
+
+        ax.grid(
+            axis="y",
+            alpha=_GRID["alpha"],
+            linestyle="--",
+            linewidth=_GRID["linewidth"],
+        )
+        ax.set_axisbelow(True)
+        for spine in ax.spines.values():
+            spine.set_color(_AXES["spine_color"])
+            spine.set_linewidth(_AXES["spine_linewidth"])
+        ax.tick_params(
+            axis=_TICKS["axis"],
+            pad=_TICKS["pad"],
+            which=_TICKS["which"],
+            color=_TICKS["color"],
+            labelcolor=_TICKS["labelcolor"],
+            direction=_TICKS["direction"],
+        )
+        ax.set_box_aspect(_AXES["box_aspect"])
+        ax.set_facecolor(_AXES["facecolor"])
+
+    axes[0].set_ylabel("LCOH [€/MWh]", fontsize=_FONTS["label"])
+
+    handles = [
+        mpatches.Patch(facecolor=color, edgecolor=_COLORS["edge"], label=label)
+        for label, color in _LCOH_CATEGORY_COLORS.items()
+    ]
+    fig.legend(
+        handles=handles,
+        fontsize=_FONTS["legend"],
+        framealpha=0.95,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=len(handles),
+    )
+    fig.tight_layout()
+
+    if save_path is not None:
+        if file_name is None:
+            raise ValueError("`file_name` is required when `save_path` is given.")
+        save_path = Path(save_path)
+        save_path.mkdir(parents=True, exist_ok=True)
+        out = save_path / f"{file_name}_lcoh_breakdown.png"
+        fig.savefig(
+            out,
+            dpi=PLOT_STYLE["figure"]["dpi"],
+            bbox_inches="tight",
+            facecolor=PLOT_STYLE["figure"]["facecolor"],
+        )
+        print(f"✓ Figure saved: {out}")
+
+    return fig, axes
