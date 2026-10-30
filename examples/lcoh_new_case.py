@@ -29,6 +29,10 @@ CYCLE_FILE_NAMES = [
     "tes_integr_interc_recup_hthp",
 ]
 
+# Display labels, in the same order as CYCLE_FILE_NAMES: S = standalone,
+# TES = TES-integrated, B = base, I = intercooled, R = recuperated.
+CYCLE_LABELS = ["S-BR", "S-IR", "TES-BR", "TES-IR"]
+
 
 def load_lcoh_table(file_name):
     """DK1 and DE tables of one cycle merged into one LCOH table."""
@@ -63,8 +67,16 @@ plot_delta_lcoh_analysis(
     file_name=f"all_hthp_energinet_{DE_FORECAST}",
 )
 
+# The labels are matched to the cycles of the breakdown table by position, so
+# the table must list them in the order of CYCLE_FILE_NAMES. Check it here.
+breakdown_path = RESULTS_DIR / "lcoh_central_breakdown.csv"
+table_cycles = list(dict.fromkeys(pd.read_csv(breakdown_path)["Cycle"]))
+print("Cycles in the breakdown table, in order:", table_cycles)
+print("Labels applied, in the same order:      ", CYCLE_LABELS)
+
 plot_lcoh_breakdown_stacked(
-    RESULTS_DIR / "lcoh_central_breakdown.csv",
+    breakdown_path,
+    cycle_labels=CYCLE_LABELS,
     save_path=FIGURES_DIR,
     file_name="all_hthp_de_energinet",
 )

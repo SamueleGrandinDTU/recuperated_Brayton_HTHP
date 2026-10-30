@@ -93,5 +93,58 @@
     "3": [-0.01, 0.0],
     "4": [-0.01, 0.0],
     "5": [-0.01, 0.0]
+  },
+
+    "cycle_label_keys": {
+    "S-BR":   "standalone_base",
+    "S-IR":   "standalone_intercooled",
+    "TES-BR": "tes_base",
+    "TES-IR": "tes_intercooled"
+  },
+
+    "cycle_colors": {
+    "standalone_base": "#002aff",
+    "standalone_intercooled": "#ff2a00",
+    "tes_base": "#65ccff",
+    "tes_intercooled": "#ff9932"
+  },
+
+    "hx_colors": {
+    "hot":  ["#ff2a00", "#ff9932"],
+    "cold": ["#002aff", "#3299ff"]
+  },
+
+    "component_colors": {
+    "compressor":   "#002aff",
+    "compressor 1": "#1965ff",
+    "compressor 2": "#3299ff",
+    "turbine":      "#65ccff",
+    "sink":         "#ff2a00",
+    "sink 1":       "#ff6619",
+    "sink 2":       "#ff9932",
+    "recuperator":  "#ffcc65",
+    "interface hx": "#ffee99",
+    "tank 1":       "#7f7f7f",
+    "tank 2":       "#b3b3b3",
+    "hitec salt":   "#e0e0e0"
+  },
+
+  "operational_strategy": {
+    "colors": {
+      "electricity_price": "#404040",
+      "heat_demand": "#ffcc65",
+      "hthp": "#ff6619",
+      "tes": "#1965ff"
+    },
+    "fonts": { "title": 22, "label": 20, "tick": 18, "legend": 20 },
+    "tes_axis_offset": 1.22
+  },
+
+  "lcoh_category_colors": {
+    "CAPEX":           "#1965ff",
+    "Electricity":     "#ff6619",
+    "O&M":             "#ff9932",
+    "Labour":          "#ffcc65",
+    "Decommissioning": "#7f7f7f"
   }
 }

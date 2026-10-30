@@ -26,19 +26,10 @@ from src import (
 # "label" is the display name used on the comparison plots' x-axis. Edit
 # "label" freely; "file_name" must match what's on disk.
 CYCLES = [
-    {"file_name": "standalone_base_recup_hthp", "label": "Standalone Base Recuperated"},
-    {
-        "file_name": "standalone_interc_recup_hthp",
-        "label": "Standalone Intercooled Recuperated",
-    },
-    {
-        "file_name": "tes_integr_base_recup_hthp",
-        "label": "TES-Integrated Base Recuperated",
-    },
-    {
-        "file_name": "tes_integr_interc_recup_hthp",
-        "label": "TES-Integrated Intercooled Recuperated",
-    },
+    {"file_name": "standalone_base_recup_hthp", "label": "S-BR"},
+    {"file_name": "standalone_interc_recup_hthp", "label": "S-IR"},
+    {"file_name": "tes_integr_base_recup_hthp", "label": "TES-BR"},
+    {"file_name": "tes_integr_interc_recup_hthp", "label": "TES-IR"},
 ]
 
 RESULTS_DIR = Path("results/tables")
@@ -121,7 +112,7 @@ plot_delta_lcoh_analysis(
 # 6. T-s diagrams, base vs intercooled on the same graph, and Standalone vs TES-Integrated for each cycle on the same graph
 plot_ts_diagram(
     [states_csv_paths[0], states_csv_paths[1]],
-    cycle_labels=["Standalone Base Rec.", "Standalone Intercooled Rec."],
+    cycle_labels=[cycle_labels[0], cycle_labels[1]],  # S-BR, S-IR
     save_path=FIGURES_DIR,
     file_name="standalone_hthp",
 )
@@ -132,8 +123,8 @@ plot_ts_diagram(
         [states_csv_paths[1], states_csv_paths[3]],  # intercooled: standalone, TES
     ],
     cycle_labels=[
-        ["Standalone Base Rec.", "TES-Integrated Base Rec."],
-        ["Standalone Intercooled Rec.", "TES-Integrated Intercooled Rec."],
+        [cycle_labels[0], cycle_labels[2]],  # S-BR, TES-BR
+        [cycle_labels[1], cycle_labels[3]],  # S-IR, TES-IR
     ],
     save_path=FIGURES_DIR,
     file_name="all_hthp",

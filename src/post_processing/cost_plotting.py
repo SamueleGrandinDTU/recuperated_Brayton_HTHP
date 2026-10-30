@@ -20,32 +20,27 @@ _AXES = PLOT_STYLE["axes"]
 _TICKS = PLOT_STYLE["ticks"]
 _LINEWIDTH = PLOT_STYLE["lines_and_markers"]["linewidth"]
 
-# Cycle colors (same scheme as in the exergy plots): shades of blue for base
-# cycles, shades of red for labels mentioning "intercooled".
-_CYCLE_BASE_COLORS = ["#3182bd", "#9ecae1"]  # blue, light blue
-_CYCLE_INTERCOOLED_COLORS = ["#de2d26", "#fc9272"]  # red, light red
+# Cycle colors (same scheme as in the T-s and exergy plots):
+# PLOT_STYLE["cycle_colors"], dark for standalone and light for TES-integrated,
+# blue for base and red / orange for intercooled.
+_CYCLE_COLORS = PLOT_STYLE["cycle_colors"]
+# Short cycle label -> key of cycle_colors, e.g. {"S-BR": "standalone_base"}
+_CYCLE_LABEL_KEYS = PLOT_STYLE["cycle_label_keys"]
 
 _DEMAND_MARKERS = {"fixed": "s", "free": "o"}  # square = fixed, circle = free
+_DEMAND_LABELS = {
+    "fixed": "Fixed heat demand schedule",
+    "free": "Variable heat demand schedule",
+}
 
-# Fixed component order + colors (case-insensitive match on component name)
-_COMPONENT_COLOR_ORDER = [
-    ("compressor", "#08519c"),  # dark blue
-    ("compressor 1", "#3182bd"),  # blue
-    ("compressor 2", "#9ecae1"),  # light blue
-    ("turbine", "#2ca02c"),  # green
-    ("sink", "#67000d"),  # dark red
-    ("sink 1", "#de2d26"),  # red
-    ("sink 2", "#fc9272"),  # light red
-    ("recuperator", "#8c564b"),  # brown
-    ("interface hx", "#e377c2"),  # pink
-    ("tank 1", "#7f7f7f"),  # grey
-    ("tank 2", "#c7c7c7"),  # light grey
-    ("hitec salt", "#ff7f0e"),  # orange
-]
-_COMPONENT_ORDER = [c for c, _ in _COMPONENT_COLOR_ORDER]
-_COMPONENT_COLORS = {c: color for c, color in _COMPONENT_COLOR_ORDER}
+# Component colors and stacking order (bottom to top) come from
+# PLOT_STYLE["component_colors"] ({lower-case component name: color}); the
+# match against the component names of the tables is case-insensitive.
+_COMPONENT_COLORS = PLOT_STYLE["component_colors"]
+_COMPONENT_ORDER = list(_COMPONENT_COLORS)
+_UNKNOWN_COMPONENT_COLOR = "#7f7f7f"  # grey, for a component not in the scheme
 
-_CYCLE_LABEL = "Standalone Base Recuperated"
+_CYCLE_LABEL = "S-BR"
 _WRAP_WIDTH = 14
 
 # Component labels used for a cycle-level summary row (e.g. the "total" row
@@ -85,8 +80,8 @@ def plot_component_cost_stacked(
 ):
     """
     Plot component cost as one stacked bar per cycle. Component stacking
-    order and colors follow a fixed, predefined scheme so they stay
-    consistent across figures.
+    order and colors follow the scheme PLOT_STYLE["component_colors"] so they
+    stay consistent across figures.
 
     Parameters
     ----------
@@ -133,32 +128,27 @@ def plot_component_cost_stacked(
             break
 
     # Components actually present, ordered per the fixed scheme;
-    # anything not in the scheme is appended (sorted) with a fallback color.
+    # anything not in the scheme is appended (sorted) with a grey fallback.
     present = {comp for df in df_list for comp in df["Component"].values}
-    ordered_components = [
-        c
-        for c in _COMPONENT_ORDER
-        if c in present or c.lower() in {p.lower() for p in present}
-    ]
-    # map back to the actual casing used in the data
     present_lookup = {p.lower(): p for p in present}
     ordered_components = [
-        present_lookup[c] for c in ordered_components if c in present_lookup
+        present_lookup[c] for c in _COMPONENT_ORDER if c in present_lookup
     ]
 
     leftover = sorted(present - set(ordered_components))
     ordered_components += leftover
 
-    extra_cmap = plt.cm.tab10
     colors = {}
-    extra_idx = 0
     for comp in ordered_components:
         key = comp.lower()
         if key in _COMPONENT_COLORS:
             colors[comp] = _COMPONENT_COLORS[key]
         else:
-            colors[comp] = extra_cmap(extra_idx % 10)
-            extra_idx += 1
+            print(
+                f"Warning: no color for component '{comp}' in "
+                f"PLOT_STYLE['component_colors'], using grey."
+            )
+            colors[comp] = _UNKNOWN_COMPONENT_COLOR
 
     wrapped_labels = [textwrap.fill(lbl, width=_WRAP_WIDTH) for lbl in cycle_labels]
 
@@ -185,7 +175,6 @@ def plot_component_cost_stacked(
             color=colors[comp],
             edgecolor=PLOT_STYLE["colors"]["edge"],
             linewidth=PLOT_STYLE["lines_and_markers"]["linewidth"],
-            alpha=0.85,
         )
         bottoms += values
 
@@ -197,7 +186,7 @@ def plot_component_cost_stacked(
         wrapped_labels,
         ha="center",
         rotation=0,
-        fontsize=PLOT_STYLE["fonts"]["small_label"],
+        fontsize=PLOT_STYLE["fonts"]["tick"],
     )
     # Scales to however many cycles are being compared, instead of the fixed
     # (-1, 1) that only ever fit a single bar.
@@ -257,30 +246,30 @@ def plot_component_cost_stacked(
 
 
 def _assign_cycle_colors(cycle_labels):
-    """One color per cycle label: shades of red for a label mentioning
-    "intercooled", shades of blue otherwise, falling back to tab10 once a
-    group's fixed shades (2 each) run out."""
+    """One color per cycle label, from PLOT_STYLE["cycle_colors"].
+
+    The key is built from the label: "tes" in it -> TES-integrated, otherwise
+    standalone; "interc" in it -> intercooled, otherwise base. A label that
+    maps to no key (or a repeated one) falls back to tab10.
+    """
     extra_cmap = plt.cm.tab10
-    base_idx = 0
-    intercooled_idx = 0
     extra_idx = 0
     colors = []
 
     for label in cycle_labels:
-        is_intercooled = "interc" in str(label).lower()
-        palette = _CYCLE_INTERCOOLED_COLORS if is_intercooled else _CYCLE_BASE_COLORS
-        idx = intercooled_idx if is_intercooled else base_idx
-
-        if idx < len(palette):
-            colors.append(palette[idx])
+        text = str(label).lower()
+        # the short labels (S-BR, S-IR, TES-BR, TES-IR) are looked up directly;
+        # long labels are recognised from their text
+        key = _CYCLE_LABEL_KEYS.get(str(label).strip())
+        if key is None:
+            key = ("tes" if "tes" in text else "standalone") + (
+                "_intercooled" if "interc" in text else "_base"
+            )
+        if key in _CYCLE_COLORS and _CYCLE_COLORS[key] not in colors:
+            colors.append(_CYCLE_COLORS[key])
         else:
             colors.append(extra_cmap(extra_idx % 10))
             extra_idx += 1
-
-        if is_intercooled:
-            intercooled_idx += 1
-        else:
-            base_idx += 1
 
     return colors
 
@@ -381,7 +370,6 @@ def plot_lcoh_scenarios_stacked(
                 color=colors[i],
                 edgecolor=_COLORS["edge"],
                 linewidth=_LINEWIDTH,
-                alpha=0.85,
             )
             ax.text(
                 x,
@@ -530,7 +518,7 @@ def plot_delta_lcoh_analysis(
 
     all_vals = np.concatenate([d.to_numpy().ravel() for _, d in deltas])
     lo, hi = min(0.0, all_vals.min()), max(0.0, all_vals.max())
-    pad = 0.25 * (hi - lo if hi > lo else 1.0)  # room for the region labels
+    pad = 0.1 * (hi - lo if hi > lo else 1.0)  # margin above / below the markers
     ylim = (lo - pad, hi + pad)
 
     fig_w, fig_h = PLOT_STYLE["figure"]["figsize"]
@@ -566,52 +554,15 @@ def plot_delta_lcoh_analysis(
                     color=colors[p],
                     edgecolor=_COLORS["edge"],
                     linewidth=_LINEWIDTH,
-                    alpha=0.9,
                     zorder=3,
                 )
-                # label on the outer side of the marker so it never runs
-                # into the neighbouring layout's marker
-                side = -1 if dx < 0 else 1
-                for xi, yi in zip(x_groups + dx, y):
-                    ax.text(
-                        xi + side * 0.07,
-                        yi,
-                        f"{yi:+.1f}",
-                        va="center",
-                        ha="left" if side > 0 else "right",
-                        fontsize=_FONTS["small_label"],
-                    )
 
         ax.set_ylim(*ylim)
-        ax.set_xlim(-0.6, len(scenarios) - 1 + 0.75)
+        ax.set_xlim(-0.6, len(scenarios) - 1 + 0.6)
         ax.set_xticks(x_groups)
         ax.set_xticklabels([str(s).capitalize() for s in scenarios])
         ax.set_xlabel("Scenario", fontsize=_FONTS["label"])
-        ax.set_title(f"({chr(ord('a') + k)}) {market}", fontsize=_FONTS["label"])
-
-        # which side of the zero line means what
-        ax.text(
-            0.02,
-            0.98,
-            "TES increases LCOH",
-            transform=ax.transAxes,
-            va="top",
-            ha="left",
-            fontsize=_FONTS["small_label"],
-            style="italic",
-            color="gray",
-        )
-        ax.text(
-            0.02,
-            0.02,
-            "TES decreases LCOH",
-            transform=ax.transAxes,
-            va="bottom",
-            ha="left",
-            fontsize=_FONTS["small_label"],
-            style="italic",
-            color="gray",
-        )
+        ax.set_title(f"({chr(ord('a') + k)}) {market}", fontsize=_FONTS["title"])
 
         ax.grid(
             axis="y",
@@ -631,7 +582,7 @@ def plot_delta_lcoh_analysis(
             color=_TICKS["color"],
             labelcolor=_TICKS["labelcolor"],
             direction=_TICKS["direction"],
-            labelsize=_FONTS["small_label"],
+            labelsize=_FONTS["tick"],
         )
         ax.set_box_aspect(_AXES["box_aspect"])
 
@@ -648,16 +599,16 @@ def plot_delta_lcoh_analysis(
             [],
             linestyle="none",
             marker=_DEMAND_MARKERS.get(d, "D"),
-            markersize=8,
+            markersize=10,
             markerfacecolor="white",
             markeredgecolor=_COLORS["edge"],
-            label=f"{d.capitalize()} heat demand",
+            label=_DEMAND_LABELS.get(d, f"{d.capitalize()} heat demand schedule"),
         )
         for d in demands
     ]
     fig.legend(
         handles=handles,
-        fontsize=_FONTS["legend"],
+        fontsize=_FONTS["tick"],
         framealpha=0.95,
         loc="lower center",
         bbox_to_anchor=(0.5, 1.0),
@@ -683,14 +634,9 @@ def plot_delta_lcoh_analysis(
 
 
 # Colors of the LCOH cost categories, in stacking order (bottom to top):
-# CAPEX in blue, the three OPEX items in shades of orange, decommissioning grey
-_LCOH_CATEGORY_COLORS = {
-    "CAPEX": "#3182bd",  # blue
-    "Electricity": "#e6550d",  # dark orange
-    "O&M": "#fd8d3c",  # orange
-    "Labour": "#fdbe85",  # light orange
-    "Decommissioning": "#7f7f7f",  # grey
-}
+# PLOT_STYLE["lcoh_category_colors"] ({category: color}; the names must be
+# CAPEX, Electricity, O&M, Labour and Decommissioning).
+_LCOH_CATEGORY_COLORS = PLOT_STYLE["lcoh_category_colors"]
 
 # A segment thinner than this fraction of the y axis gets its percentage
 # above the bar instead of inside the segment.
@@ -809,7 +755,6 @@ def plot_lcoh_breakdown_stacked(
                 color=color,
                 edgecolor=_COLORS["edge"],
                 linewidth=_LINEWIDTH,
-                alpha=0.85,
             )
             # percentage share of the LCOH inside each segment
             for i, (xi, v, b, t) in enumerate(zip(x, values, bottoms, total)):
@@ -820,8 +765,8 @@ def plot_lcoh_breakdown_stacked(
                         f"{100 * v / t:.1f} %",
                         ha="center",
                         va="center",
-                        fontsize=_FONTS["small_label"],
-                        color="white" if category == "CAPEX" else "black",
+                        fontsize=_FONTS["legend"],
+                        color="black",
                     )
                 else:
                     name = "Decomm." if category == "Decommissioning" else category
@@ -834,7 +779,7 @@ def plot_lcoh_breakdown_stacked(
             wrapped_labels,
             ha="center",
             rotation=0,
-            fontsize=_FONTS["small_label"],
+            fontsize=_FONTS["tick"],
         )
         ax.set_xlim(-0.75, len(cycles) - 1 + 0.75)
         ax.set_xlabel("Cycle", fontsize=_FONTS["label"])
@@ -857,6 +802,7 @@ def plot_lcoh_breakdown_stacked(
             color=_TICKS["color"],
             labelcolor=_TICKS["labelcolor"],
             direction=_TICKS["direction"],
+            labelsize=_FONTS["tick"],
         )
         ax.set_box_aspect(_AXES["box_aspect"])
         ax.set_facecolor(_AXES["facecolor"])
@@ -869,7 +815,7 @@ def plot_lcoh_breakdown_stacked(
     ]
     fig.legend(
         handles=handles,
-        fontsize=_FONTS["legend"],
+        fontsize=_FONTS["label"] + 1,
         framealpha=0.95,
         loc="lower center",
         bbox_to_anchor=(0.5, 1.02),

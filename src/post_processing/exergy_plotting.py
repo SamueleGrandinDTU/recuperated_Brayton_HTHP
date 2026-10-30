@@ -12,63 +12,58 @@ import matplotlib.patches as mpatches
 
 from src import PLOT_STYLE
 
-# Fixed component order + colors (case-insensitive match on component name)
-_COMPONENT_COLOR_ORDER = [
-    ("compressor", "#08519c"),  # dark blue
-    ("compressor 1", "#3182bd"),  # blue
-    ("compressor 2", "#9ecae1"),  # light blue
-    ("turbine", "#2ca02c"),  # green
-    ("sink", "#67000d"),  # dark red
-    ("sink 1", "#de2d26"),  # red
-    ("sink 2", "#fc9272"),  # light red
-    ("recuperator", "#8c564b"),  # brown
-    ("interface hx", "#e377c2"),  # pink
-]
-_COMPONENT_ORDER = [c for c, _ in _COMPONENT_COLOR_ORDER]
-_COMPONENT_COLORS = {c: color for c, color in _COMPONENT_COLOR_ORDER}
+# Component colors and stacking order (bottom to top) come from
+# PLOT_STYLE["component_colors"] ({lower-case component name: color}); the
+# match against the component names of the tables is case-insensitive.
+_COMPONENT_COLORS = PLOT_STYLE["component_colors"]
+_COMPONENT_ORDER = list(_COMPONENT_COLORS)
+_UNKNOWN_COMPONENT_COLOR = "#7f7f7f"  # grey, for a component not in the scheme
 
-# Cycle colors for plot_exergetic_efficiencies (where color encodes the
-# cycle rather than the component), for this project's current 4-cycle
-# comparison: a cycle whose label mentions "intercooled" gets a shade of red
-# (matching the sink family's colors above); any other cycle (i.e. a "base"
-# one) gets a shade of blue (matching the compressor family's colors above).
-# Within each group, cycles are assigned shades in the order encountered, so
-# e.g. the first base cycle gets blue and the second gets light blue.
-_CYCLE_BASE_COLORS = ["#3182bd", "#9ecae1"]  # blue, light blue
-_CYCLE_INTERCOOLED_COLORS = ["#de2d26", "#fc9272"]  # red, light red
+# Legend of the exergy plots: font size and vertical position (axes
+# coordinates, below the axes) shared by both plots, low enough to clear the
+# rotated component labels and the x-axis label of the efficiency plot.
+_LEGEND_FONTSIZE = PLOT_STYLE["fonts"]["label"]
+_LEGEND_Y = -0.45
+
+# Colors of the four cycles for plot_exergetic_efficiencies (where color
+# encodes the cycle rather than the component): PLOT_STYLE["cycle_colors"],
+# dark for standalone and light for TES-integrated, blue for base and
+# red / orange for intercooled.
+_CYCLE_COLORS = PLOT_STYLE["cycle_colors"]
+# Short cycle label -> key of cycle_colors, e.g. {"S-BR": "standalone_base"}
+_CYCLE_LABEL_KEYS = PLOT_STYLE["cycle_label_keys"]
 
 
 def _assign_cycle_colors(cycle_labels):
-    """Assign one color per cycle label: shades of red for a label
-    mentioning "intercooled", shades of blue otherwise, falling back to
-    tab10 once a group's fixed shades (2 each) run out.
+    """One color per cycle label, from PLOT_STYLE["cycle_colors"].
+
+    The key is built from the label: "tes" in it -> TES-integrated, otherwise
+    standalone; "interc" in it -> intercooled, otherwise base. A label that
+    maps to no key (or a repeated one) falls back to tab10.
     """
     extra_cmap = plt.cm.tab10
-    base_idx = 0
-    intercooled_idx = 0
     extra_idx = 0
     colors = []
 
     for label in cycle_labels:
-        is_intercooled = "interc" in str(label).lower()
-        palette = _CYCLE_INTERCOOLED_COLORS if is_intercooled else _CYCLE_BASE_COLORS
-        idx = intercooled_idx if is_intercooled else base_idx
-
-        if idx < len(palette):
-            colors.append(palette[idx])
+        text = str(label).lower()
+        # the short labels (S-BR, S-IR, TES-BR, TES-IR) are looked up directly;
+        # long labels are recognised from their text
+        key = _CYCLE_LABEL_KEYS.get(str(label).strip())
+        if key is None:
+            key = ("tes" if "tes" in text else "standalone") + (
+                "_intercooled" if "interc" in text else "_base"
+            )
+        if key in _CYCLE_COLORS and _CYCLE_COLORS[key] not in colors:
+            colors.append(_CYCLE_COLORS[key])
         else:
             colors.append(extra_cmap(extra_idx % 10))
             extra_idx += 1
 
-        if is_intercooled:
-            intercooled_idx += 1
-        else:
-            base_idx += 1
-
     return colors
 
 
-_CYCLE_LABEL = "Standalone Base Recuperated"
+_CYCLE_LABEL = "S-BR"
 _WRAP_WIDTH = 14
 
 # Component labels used for a cycle-level summary row (e.g. the "cycle" row
@@ -119,15 +114,9 @@ def _ordered_components_present(df_list):
     """Components actually present, ordered per the fixed scheme; anything
     not in the scheme is appended (sorted)."""
     present = {comp for df in df_list for comp in df["Component"].values}
-    ordered_components = [
-        c
-        for c in _COMPONENT_ORDER
-        if c in present or c.lower() in {p.lower() for p in present}
-    ]
-    # map back to the actual casing used in the data
     present_lookup = {p.lower(): p for p in present}
     ordered_components = [
-        present_lookup[c] for c in ordered_components if c in present_lookup
+        present_lookup[c] for c in _COMPONENT_ORDER if c in present_lookup
     ]
 
     leftover = sorted(present - set(ordered_components))
@@ -204,16 +193,17 @@ def _draw_exergy_destruction(ax, df_list, cycle_labels):
 
     ordered_components = _ordered_components_present(df_list)
 
-    extra_cmap = plt.cm.tab10
     colors = {}
-    extra_idx = 0
     for comp in ordered_components:
         key = comp.lower()
         if key in _COMPONENT_COLORS:
             colors[comp] = _COMPONENT_COLORS[key]
         else:
-            colors[comp] = extra_cmap(extra_idx % 10)
-            extra_idx += 1
+            print(
+                f"Warning: no color for component '{comp}' in "
+                f"PLOT_STYLE['component_colors'], using grey."
+            )
+            colors[comp] = _UNKNOWN_COMPONENT_COLOR
 
     wrapped_labels = [textwrap.fill(lbl, width=_WRAP_WIDTH) for lbl in cycle_labels]
     x = np.arange(len(df_list))
@@ -235,7 +225,6 @@ def _draw_exergy_destruction(ax, df_list, cycle_labels):
             color=colors[comp],
             edgecolor=PLOT_STYLE["colors"]["edge"],
             linewidth=PLOT_STYLE["lines_and_markers"]["linewidth"],
-            alpha=0.85,
         )
         bottoms += values
 
@@ -247,15 +236,15 @@ def _draw_exergy_destruction(ax, df_list, cycle_labels):
         wrapped_labels,
         ha="center",
         rotation=0,
-        fontsize=PLOT_STYLE["fonts"]["small_label"],
+        fontsize=PLOT_STYLE["fonts"]["tick"],
     )
     ax.set_xlim(-0.75, len(df_list) - 1 + 0.75)
 
     ax.legend(
-        fontsize=PLOT_STYLE["fonts"]["legend"],
+        fontsize=_LEGEND_FONTSIZE,
         framealpha=0.95,
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.27),
+        bbox_to_anchor=(0.5, _LEGEND_Y),
         ncol=min(len(ordered_components), 4),
     )
     _style_axes(ax)
@@ -311,7 +300,6 @@ def _draw_exergetic_efficiencies(ax, df_list, cycle_labels):
                 color=cycle_colors[i],
                 edgecolor=PLOT_STYLE["colors"]["edge"],
                 linewidth=PLOT_STYLE["lines_and_markers"]["linewidth"],
-                alpha=0.85,
             )
 
     legend_handles = [
@@ -332,16 +320,16 @@ def _draw_exergetic_efficiencies(ax, df_list, cycle_labels):
         ha="right",
         rotation=45,
         rotation_mode="anchor",
-        fontsize=PLOT_STYLE["fonts"]["small_label"],
+        fontsize=PLOT_STYLE["fonts"]["tick"],
     )
     ax.set_xlim(x_groups[0] - 0.5, x_groups[-1] + 0.5)
 
     ax.legend(
         handles=legend_handles,
-        fontsize=PLOT_STYLE["fonts"]["legend"],
+        fontsize=_LEGEND_FONTSIZE,
         framealpha=0.95,
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.27),
+        bbox_to_anchor=(0.5, _LEGEND_Y),
         ncol=math.ceil(n_cycles / 2),
     )
     _style_axes(ax)
