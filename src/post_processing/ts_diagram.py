@@ -19,16 +19,48 @@ from src import PLOT_STYLE
 # (compressor / turbine, short and almost vertical in the T-s diagram).
 _ISOBAR_TOL = 1e-3
 
-# Colors of the cycles when several are drawn on the same graph: the first is
-# PLOT_STYLE["colors"]["process"] (red), then these.
-_EXTRA_CYCLE_COLORS = ["#1f77b4", "#2ca02c", "#ff7f0e"]
-
 _DIAGRAM_FLUID = "air"
 
 # Order in which the state points of a CSV are joined (labels not listed here
 # are appended after these, in file order). The intercooled cycle runs
 # 2 -> 2i (intercooler) -> 3i (second compressor) -> 3 (cooling) -> 4.
 _CYCLE_ORDER = ["0", "1", "2", "2i", "3i", "3", "4", "5"]
+
+
+def _resolve_color(c):
+    """A key of PLOT_STYLE["cycle_colors"] (e.g. "tes_base") or a raw colour."""
+    return PLOT_STYLE["cycle_colors"].get(c, c)
+
+
+def _panel_colors(colors, panels):
+    """One list of colours per panel.
+
+    colors = None            -> default (see below)
+    colors = [k1, k2, ...]   -> same list used for every panel
+    colors = [[...], [...]]  -> one list per panel
+    Entries are cycle_colors keys or hex strings.
+
+    Default: a single graph uses the dark standalone colours first, then the
+    light TES ones (base, intercooled, TES base, TES intercooled). With
+    several graphs, graph k gets [dark_k, light_k]: (a) standalone/TES base
+    (blue shades), (b) standalone/TES intercooled (red/orange shades).
+    """
+    cc = PLOT_STYLE["cycle_colors"]
+    dark = [cc["standalone_base"], cc["standalone_intercooled"]]
+    light = [cc["tes_base"], cc["tes_intercooled"]]
+    n = len(panels)
+
+    if colors is None:
+        if n == 1:
+            return [dark + light]
+        return [[dark[k % 2], light[k % 2]] for k in range(n)]
+
+    if isinstance(colors[0], (list, tuple)):
+        if len(colors) != n:
+            raise ValueError("`colors` must have one list per graph.")
+        return [[_resolve_color(c) for c in lst] for lst in colors]
+
+    return [[_resolve_color(c) for c in colors]] * n
 
 
 def _find_column(df, name):
@@ -157,188 +189,6 @@ def _draw_ts_panel(ax, items, cycle_labels, colors, label_all_states):
             f"cycle_labels has {len(cycle_labels)} entries but "
             f"{len(items)} cycles were given."
         )
-    if colors is None:
-        colors = [plot_style["colors"]["process"]] + _EXTRA_CYCLE_COLORS
-    if len(colors) < len(items):
-        raise ValueError("Not enough colors for the number of cycles.")
-
-    # Initialize the diagram
-    diagram = FluidPropertyDiagram(_DIAGRAM_FLUID)
-    diagram.set_unit_system(T="°C", p="bar", h="kJ/kg", s="kJ/kgK")
-
-    # Curves and state points of every cycle
-    cycles = []
-    for item in items:
-        if isinstance(item, (str, Path, pd.DataFrame)):
-            cycles.append(_cycle_from_csv(item, diagram))
-        else:
-            cycles.append(_cycle_from_plant(item, diagram))
-
-    # Extract all s and T values (all cycles) to determine axis limits
-    all_s = []
-    all_T = []
-    for cycle in cycles:
-        for s_curve, T_curve in cycle["curves"]:
-            all_s += [s_curve[0], s_curve[-1]]
-            all_T += [T_curve[0], T_curve[-1]]
-        for s_state, T_state in cycle["states"].values():
-            all_s.append(s_state)
-            all_T.append(T_state)
-
-    x_min = min(all_s) - plot_style["layout"]["auto_x_padding"]
-    x_max = max(all_s) + plot_style["layout"]["auto_x_padding"]
-    y_min = min(all_T) - plot_style["layout"]["auto_y_padding"]
-    y_max = max(all_T) + plot_style["layout"]["auto_y_padding"]
-
-    # Set isolines for T-s diagram
-    isolines = {
-        "Q": np.linspace(
-            PLOT_STYLE["ts_diagram"]["isoline_quality"]["start"],
-            PLOT_STYLE["ts_diagram"]["isoline_quality"]["end"],
-            PLOT_STYLE["ts_diagram"]["isoline_quality"]["num"],
-        ),
-        "p": np.array([]),
-        "v": np.array([]),
-        "h": np.arange(
-            PLOT_STYLE["ts_diagram"]["isoline_enthalpy"]["start"],
-            PLOT_STYLE["ts_diagram"]["isoline_enthalpy"]["end"],
-            PLOT_STYLE["ts_diagram"]["isoline_enthalpy"]["step"],
-        ),
-    }
-
-    diagram.set_isolines(**isolines)
-    diagram.calc_isolines()
-
-    # Draw isolines
-    diagram.draw_isolines(
-        None,
-        ax,
-        "Ts",
-        x_min=x_min,
-        x_max=x_max,
-        y_min=y_min,
-        y_max=y_max,
-    )
-
-    # Adjust isoline label font size
-    for text in ax.texts:
-        text.set_fontsize(plot_style["fonts"]["isoline"])
-
-    # Plot the T-s curves of each cycle, in the order given (later cycles
-    # are drawn on top of earlier ones)
-    for k, cycle in enumerate(cycles):
-        for s_curve, T_curve in cycle["curves"]:
-            ax.plot(
-                s_curve,
-                T_curve,
-                color=colors[k],
-                linewidth=plot_style["lines_and_markers"]["linewidth"],
-            )
-            ax.scatter(
-                [s_curve[0], s_curve[-1]],
-                [T_curve[0], T_curve[-1]],
-                color=colors[k],
-                s=plot_style["lines_and_markers"]["point_size"],
-                zorder=5,
-            )
-
-    # Add state point labels (last cycle only, unless label_all_states)
-    custom_mults = plot_style.get("directional_labels", {})
-    labeled_cycles = cycles if label_all_states else cycles[-1:]
-
-    for cycle in labeled_cycles:
-        for conn_label, (s_state, T_state) in cycle["states"].items():
-            lbl_str = str(conn_label)
-
-            if lbl_str in custom_mults:
-                offset_x, offset_y = custom_mults[lbl_str]
-            else:
-                offset_x = plot_style["layout"]["label_x_offset"]
-                offset_y = plot_style["layout"]["label_y_offset"]
-
-            ha_val = "right" if offset_x < 0 else ("left" if offset_x > 0 else "center")
-            va_val = "top" if offset_y < 0 else ("bottom" if offset_y > 0 else "center")
-
-            ax.text(
-                s_state + offset_x,
-                T_state + offset_y,
-                conn_label,
-                fontsize=plot_style["fonts"]["value"],
-                color=plot_style["colors"]["label"],
-                ha=ha_val,
-                va=va_val,
-            )
-
-    # Legend (one line per cycle), upper left
-    if cycle_labels is not None:
-        for k, label in enumerate(cycle_labels):
-            ax.plot(
-                [],
-                [],
-                color=colors[k],
-                linewidth=plot_style["lines_and_markers"]["linewidth"],
-                label=label,
-            )
-        ax.legend(
-            loc="upper left",
-            fontsize=plot_style["fonts"]["legend"],
-            framealpha=0.95,
-        )
-
-    grid_style = plot_style["grid"]
-
-    ax.grid(
-        True,
-        color=grid_style["color"],
-        linestyle=grid_style["linestyle"],
-        linewidth=grid_style["linewidth"],
-        alpha=grid_style["alpha"],
-    )
-
-    for spine in ax.spines.values():
-        spine.set_color(plot_style["axes"]["spine_color"])
-        spine.set_linewidth(plot_style["axes"]["spine_linewidth"])
-
-    ax.set_box_aspect(plot_style["axes"]["box_aspect"])
-    ax.set_facecolor(plot_style["figure"]["facecolor"])
-
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(y_min, y_max)
-
-    ax.set_xlabel(
-        r"Entropy $\left[\mathrm{\frac{kJ}{kg\,K}}\right]$",
-        fontsize=plot_style["fonts"]["label"],
-    )
-    ax.set_ylabel(
-        r"Temperature $\left[^\circ\mathrm{C}\right]$",
-        fontsize=plot_style["fonts"]["label"],
-    )
-
-    ticks_style = plot_style["ticks"]
-
-    ax.tick_params(
-        axis=ticks_style["axis"],
-        pad=ticks_style["pad"],
-        which=ticks_style["which"],
-        color=ticks_style["color"],
-        labelcolor=ticks_style["labelcolor"],
-        direction=ticks_style["direction"],
-        labelsize=plot_style["fonts"]["tick"],
-    )
-
-
-def _draw_ts_panel(ax, items, cycle_labels, colors, label_all_states):
-    """Draw the cycles `items` (plants / CSVs, overlaid) on one axes."""
-
-    plot_style = PLOT_STYLE
-
-    if cycle_labels is not None and len(cycle_labels) != len(items):
-        raise ValueError(
-            f"cycle_labels has {len(cycle_labels)} entries but "
-            f"{len(items)} cycles were given."
-        )
-    if colors is None:
-        colors = [plot_style["colors"]["process"]] + _EXTRA_CYCLE_COLORS
     if len(colors) < len(items):
         raise ValueError("Not enough colors for the number of cycles.")
 
@@ -539,9 +389,13 @@ def plot_ts_diagram(
         Legend labels (one legend per graph, upper left). A list of lists
         matches `plant` ([[la, lb], [lc, ld]]); a flat list with a list of
         lists is used for every graph.
-    colors : list of str, optional
-        One color per cycle in a graph. Default: PLOT_STYLE process color
-        (red) for the first cycle, then blue, green, orange.
+    colors : list of str, or list of lists of str, optional
+        Colours of the cycles of each graph: keys of
+        PLOT_STYLE["cycle_colors"] ("standalone_base", "standalone_intercooled",
+        "tes_base", "tes_intercooled") or hex strings. A flat list is used for
+        every graph; a list of lists gives one list per graph.
+        Default: the dark standalone colours first, then the light TES ones
+        (see _panel_colors).
     label_all_states : bool
         False (default): only the state points of the last cycle of each
         graph are labeled (points shared by several cycles would otherwise be
@@ -577,6 +431,9 @@ def plot_ts_diagram(
     else:
         panel_labels = [list(cycle_labels)] * n_panels
 
+    # colours of each panel
+    panel_colors = _panel_colors(colors, panels)
+
     w, h = plot_style["figure"]["figsize"]
     fig, axes = plt.subplots(
         1,
@@ -587,8 +444,10 @@ def plot_ts_diagram(
     )
     axes = axes.ravel()
 
-    for k, (ax, items, labels) in enumerate(zip(axes, panels, panel_labels)):
-        _draw_ts_panel(ax, items, labels, colors, label_all_states)
+    for k, (ax, items, labels, cols) in enumerate(
+        zip(axes, panels, panel_labels, panel_colors)
+    ):
+        _draw_ts_panel(ax, items, labels, cols, label_all_states)
         if n_panels > 1:
             ax.set_title(
                 f"({chr(ord('a') + k)})", fontsize=plot_style["fonts"]["title"], pad=10

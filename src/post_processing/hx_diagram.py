@@ -9,8 +9,27 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.colors import to_rgb
+from matplotlib.legend_handler import HandlerTuple
 
 from src import PLOT_STYLE
+
+# Display names of the components (PLOT_STYLE["component_names"], e.g.
+# "sink 2" -> "HX2"): only what is written on the plots changes, the names
+# used inside the plants and in the CSV tables stay as they are. Keys are
+# matched case-insensitively; a name not in the mapping is shown as it is.
+_COMPONENT_NAMES = {k.lower(): v for k, v in PLOT_STYLE["component_names"].items()}
+
+
+def _display_name(name):
+    """Display name of a component (see _COMPONENT_NAMES)."""
+    return _COMPONENT_NAMES.get(str(name).strip().lower(), name)
+
+
+def _darken(color, factor=0.6):
+    """A darker version of `color` (used for arrows and marker edges)."""
+    r, g, b = to_rgb(color)
+    return (r * factor, g * factor, b * factor)
 
 
 def _display_label(conn):
@@ -151,6 +170,11 @@ def _draw_hx_panel(ax, hx_components):
 
     plot_style = PLOT_STYLE
 
+    # Colours of the hot and cold side of each heat exchanger, in series
+    # order: index 0 (dark) = first heat exchanger, index 1 (light) = second
+    hot_colors = plot_style["hx_colors"]["hot"]
+    cold_colors = plot_style["hx_colors"]["cold"]
+
     # Accept either a single item or a list of them.
     if not isinstance(hx_components, (list, tuple)):
         hx_components = [hx_components]
@@ -169,6 +193,7 @@ def _draw_hx_panel(ax, hx_components):
     cumulative_Q = 0
 
     all_temperatures = []
+    legend_entries = []  # ((hot line, cold line), heat exchanger name)
 
     for idx, data in enumerate(hx_data_reversed):
         Q = data["Q"]
@@ -185,36 +210,37 @@ def _draw_hx_panel(ax, hx_components):
         all_temperatures.extend(T_hot_profile)
         all_temperatures.extend(T_cold_profile)
 
-        colors_hot = plt.cm.Reds(max(0.65 + idx * 0.25, 0.45))
-        colors_cold = plt.cm.Blues(max(0.95 - idx * 0.20, 0.65))
+        # colours follow the series order: first heat exchanger = dark ones
+        order = len(hx_data) - 1 - idx
+        color_hot = hot_colors[order % len(hot_colors)]
+        color_cold = cold_colors[order % len(cold_colors)]
+        dark_hot = _darken(color_hot)
+        dark_cold = _darken(color_cold)
 
-        ax.plot(
+        (line_hot,) = ax.plot(
             q_array_shifted,
             T_hot_profile,
-            color=colors_hot,
+            color=color_hot,
             linewidth=plot_style["lines_and_markers"]["linewidth"] + 1,
-            label=f"{data['comp_name']} - hot side",
         )
 
-        ax.plot(
+        (line_cold,) = ax.plot(
             q_array_shifted,
             T_cold_profile,
-            color=colors_cold,
+            color=color_cold,
             linewidth=plot_style["lines_and_markers"]["linewidth"] + 1,
-            label=f"{data['comp_name']} - cold side",
         )
 
-        colors_hot = plt.cm.Reds(min(0.4 + idx * 0.25, 0.95))
-        colors_cold = plt.cm.Blues(max(0.95 - idx * 0.25, 0.4))
+        legend_entries.append(((line_hot, line_cold), _display_name(data["comp_name"])))
 
         # Mark inlet/outlet points
         ax.scatter(
             cumulative_Q + Q,
             data["T_hot_in"],
-            color=colors_hot,
+            color=color_hot,
             s=plot_style["lines_and_markers"]["point_size"] * 1.5,
             marker="^",
-            edgecolors="darkred",
+            edgecolors=dark_hot,
             linewidths=2,
             zorder=5,
         )
@@ -227,16 +253,15 @@ def _draw_hx_panel(ax, hx_components):
             ha="center",
             va="bottom",
             color="black",
-            weight="bold",
         )
 
         ax.scatter(
             cumulative_Q,
             data["T_hot_out"],
-            color=colors_hot,
+            color=color_hot,
             s=plot_style["lines_and_markers"]["point_size"] * 1.5,
             marker="v",
-            edgecolors="darkred",
+            edgecolors=dark_hot,
             linewidths=2,
             zorder=5,
         )
@@ -249,17 +274,16 @@ def _draw_hx_panel(ax, hx_components):
             ha="center",
             va="bottom",
             color="black",
-            weight="bold",
         )
 
         if idx == 0:
             ax.scatter(
                 cumulative_Q,
                 data["T_cold_in"],
-                color=colors_cold,
+                color=color_cold,
                 s=plot_style["lines_and_markers"]["point_size"] * 1.5,
                 marker="^",
-                edgecolors="darkblue",
+                edgecolors=dark_cold,
                 linewidths=2,
                 zorder=5,
             )
@@ -272,17 +296,16 @@ def _draw_hx_panel(ax, hx_components):
                 ha="center",
                 va="top",
                 color="black",
-                weight="bold",
             )
 
         if idx < len(hx_data) - 1 or idx == len(hx_data) - 1:
             ax.scatter(
                 cumulative_Q + Q,
                 data["T_cold_out"],
-                color=colors_cold,
+                color=color_cold,
                 s=plot_style["lines_and_markers"]["point_size"] * 1.5,
                 marker="v",
-                edgecolors="darkblue",
+                edgecolors=dark_cold,
                 linewidths=2,
                 zorder=5,
             )
@@ -295,36 +318,7 @@ def _draw_hx_panel(ax, hx_components):
                 ha="center",
                 va="top",
                 color="black",
-                weight="bold",
             )
-
-        # Flow arrows
-        for q_pos in [
-            cumulative_Q + Q * 0.25,
-            cumulative_Q + Q * 0.5,
-            cumulative_Q + Q * 0.75,
-        ]:
-            local_q = q_pos - cumulative_Q
-            if 0 <= local_q <= Q:
-                idx_arr = int(local_q / Q * 99)
-                ax.annotate(
-                    "←",
-                    xy=(q_pos, T_hot_profile[idx_arr]),
-                    fontsize=16,
-                    color="darkred",
-                    ha="center",
-                    va="center",
-                    weight="bold",
-                )
-                ax.annotate(
-                    "→",
-                    xy=(q_pos, T_cold_profile[idx_arr]),
-                    fontsize=16,
-                    color="darkblue",
-                    ha="center",
-                    va="center",
-                    weight="bold",
-                )
 
         if idx < len(hx_data) - 1:
             ax.axvline(
@@ -337,7 +331,17 @@ def _draw_hx_panel(ax, hx_components):
 
         cumulative_Q += Q
 
-    ax.legend(loc="best", fontsize=plot_style["fonts"]["value"], framealpha=0.95)
+    # Legend: one entry per heat exchanger (hot and cold line side by side),
+    # in series order
+    legend_entries.reverse()
+    ax.legend(
+        [handles for handles, _ in legend_entries],
+        [name for _, name in legend_entries],
+        handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},
+        loc="best",
+        fontsize=plot_style["fonts"]["value"],
+        framealpha=0.95,
+    )
 
     grid_style = plot_style["grid"]
 
