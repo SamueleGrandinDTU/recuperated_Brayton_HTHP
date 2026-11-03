@@ -40,6 +40,18 @@ _COMPONENT_COLORS = PLOT_STYLE["component_colors"]
 _COMPONENT_ORDER = list(_COMPONENT_COLORS)
 _UNKNOWN_COMPONENT_COLOR = "#7f7f7f"  # grey, for a component not in the scheme
 
+# Display names of the components (PLOT_STYLE["component_names"], e.g.
+# "sink 2" -> "HX2"): only what is written on the plots changes, the names
+# used inside the plants and in the CSV tables stay as they are. Keys are
+# matched case-insensitively; a name not in the mapping is shown as it is.
+_COMPONENT_NAMES = {k.lower(): v for k, v in PLOT_STYLE["component_names"].items()}
+
+
+def _display_name(name):
+    """Display name of a component (see _COMPONENT_NAMES)."""
+    return _COMPONENT_NAMES.get(str(name).strip().lower(), name)
+
+
 _CYCLE_LABEL = "S-BR"
 _WRAP_WIDTH = 14
 
@@ -171,7 +183,7 @@ def plot_component_cost_stacked(
             values,
             bottom=bottoms,
             width=0.6,
-            label=comp,
+            label=_display_name(comp),
             color=colors[comp],
             edgecolor=PLOT_STYLE["colors"]["edge"],
             linewidth=PLOT_STYLE["lines_and_markers"]["linewidth"],
@@ -193,12 +205,20 @@ def plot_component_cost_stacked(
     ax.set_xlim(-0.75, len(df_list) - 1 + 0.75)
 
     # Legend on the right, outside the plot area
+    # one legend entry per display name (e.g. "sink" and "sink 1" are both HX1)
+    handles, labels = ax.get_legend_handles_labels()
+    unique = {}
+    for handle, label in zip(handles, labels):
+        unique.setdefault(label, handle)
+
     ax.legend(
+        list(unique.values()),
+        list(unique.keys()),
         fontsize=PLOT_STYLE["fonts"]["legend"],
         framealpha=0.95,
         loc="lower center",
         bbox_to_anchor=(0.5, 1.02),
-        ncol=min(len(ordered_components), 4),
+        ncol=min(len(unique), 4),
     )
 
     ax.grid(

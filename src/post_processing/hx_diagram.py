@@ -14,6 +14,17 @@ from matplotlib.legend_handler import HandlerTuple
 
 from src import PLOT_STYLE
 
+# Display names of the components (PLOT_STYLE["component_names"], e.g.
+# "sink 2" -> "HX2"): only what is written on the plots changes, the names
+# used inside the plants and in the CSV tables stay as they are. Keys are
+# matched case-insensitively; a name not in the mapping is shown as it is.
+_COMPONENT_NAMES = {k.lower(): v for k, v in PLOT_STYLE["component_names"].items()}
+
+
+def _display_name(name):
+    """Display name of a component (see _COMPONENT_NAMES)."""
+    return _COMPONENT_NAMES.get(str(name).strip().lower(), name)
+
 
 def _darken(color, factor=0.6):
     """A darker version of `color` (used for arrows and marker edges)."""
@@ -220,7 +231,7 @@ def _draw_hx_panel(ax, hx_components):
             linewidth=plot_style["lines_and_markers"]["linewidth"] + 1,
         )
 
-        legend_entries.append(((line_hot, line_cold), data["comp_name"]))
+        legend_entries.append(((line_hot, line_cold), _display_name(data["comp_name"])))
 
         # Mark inlet/outlet points
         ax.scatter(
@@ -356,7 +367,7 @@ def _draw_hx_panel(ax, hx_components):
 
     # Formatting
     ax.set_xlabel(
-        r"Heat duty $[\mathrm{MW_{th}}]$",
+        r"Heat $[\mathrm{MW_{th}}]$",
         fontsize=plot_style["fonts"]["label"],
     )
     ax.set_ylabel(

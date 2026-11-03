@@ -5,6 +5,17 @@
     "facecolor": "#FFFFFF"
   },
 
+    "component_names": {
+    "compressor":   "CP 1",
+    "compressor 1": "CP 1",
+    "compressor 2": "CP 2",
+    "turbine":      "TU",
+    "sink":         "HX1",
+    "sink 1":       "HX1",
+    "sink 2":       "HX2",
+    "interface hx": "HX3"
+  },
+
   "colors": {
     "default": "#1f77b4",
     "destruction": "#d62728",
@@ -114,16 +125,16 @@
     "cold": ["#002aff", "#3299ff"]
   },
 
-    "component_colors": {
+  "component_colors": {
     "compressor":   "#002aff",
-    "compressor 1": "#1965ff",
-    "compressor 2": "#3299ff",
-    "turbine":      "#65ccff",
+    "compressor 1": "#002aff",
+    "compressor 2": "#1965ff",
+    "turbine":      "#3299ff",
     "sink":         "#ff2a00",
-    "sink 1":       "#ff6619",
-    "sink 2":       "#ff9932",
-    "recuperator":  "#ffcc65",
-    "interface hx": "#ffee99",
+    "sink 1":       "#ff2a00",
+    "sink 2":       "#ff6619",
+    "recuperator":  "#ff9932",
+    "interface hx": "#ffcc65",
     "tank 1":       "#7f7f7f",
     "tank 2":       "#b3b3b3",
     "hitec salt":   "#e0e0e0"
