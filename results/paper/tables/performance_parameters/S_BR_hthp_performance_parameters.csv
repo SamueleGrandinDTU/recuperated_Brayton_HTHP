@@ -1,0 +1,2 @@
+Parameter,w_compressor [kJ/kg],w_turbine [kJ/kg],q_recuperator [kJ/kg],q_sink [kJ/kg],COP [-]
+Value,74.08,28.74,216.8,60.26,1.33

@@ -1,0 +1,8 @@
+Component,eff [-],UA [kW/K],DT_LMTD [K],pr [-],VV [m^3/s]
+interface hx,0.89,118.9,8.4,-,-
+recuperator,0.94,175.3,14.1,-,-
+sink 1,0.8,29.8,10.1,-,-
+sink 2,0.9,46.8,14.9,-,-
+compressor 1,-,-,-,1.53,16.09
+compressor 2,-,-,-,1.11,11.6
+turbine,-,-,-,0.59,5.6

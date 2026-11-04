@@ -1,0 +1,3 @@
+Component,Q [MW],T_hot_in [degC],T_hot_out [degC],T_cold_in [degC],T_cold_out [degC],hot_in,hot_out,cold_in,cold_out
+sink 1,0.3,305.2478,280.5004,273.5004,290.0,2,2i,t1i,t2
+sink 2,0.7,300.0,242.0,235.0,273.5004,3i,3,t1,t1i
