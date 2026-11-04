@@ -53,6 +53,8 @@ from .plant_operation import (
     optimize_operational_strategy,
 )
 
+from .techno_economic_analysis import run_techno_economic_assessment
+
 __all__ = [
     "calculate_tanks_geometry",
     "PLOT_STYLE",
@@ -89,4 +91,5 @@ __all__ = [
     "create_configured_network",
     "Plant",
     "optimize_operational_strategy",
+    "run_techno_economic_assessment",
 ]
