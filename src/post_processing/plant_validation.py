@@ -113,75 +113,24 @@ def compare_temperatures(plant, reference_csv):
     return df_comp.round(2)
 
 
-def save_table_as_png(df, title, save_path, file_name):
-    """Save a comparison table as a PNG image.
+def save_comparison_as_csv(df, save_path, file_name):
+    """Save the temperature comparison table as a CSV file.
 
     Parameters
     ----------
     df : pd.DataFrame
-        Table to render.
-    title : str
-        Table title.
+        Temperature comparison table (see ``compare_temperatures``).
     save_path : str or Path
-        Directory to save the figure into.
+        Directory to save the file into (created if missing).
     file_name : str
-        Output file name, without extension.
+        Base file name; saved as ``<file_name>_temperature_comparison.csv``.
     """
-    table_style = PLOT_STYLE["table"]
-
-    fig, ax = plt.subplots(
-        figsize=(
-            table_style["fig_width"],
-            max(
-                table_style["min_fig_height"],
-                len(df) * table_style["row_height"],
-            ),
-        )
-    )
-
-    fig.patch.set_facecolor(PLOT_STYLE["figure"]["facecolor"])
-    ax.set_facecolor(PLOT_STYLE["axes"]["facecolor"])
-
-    ax.axis("tight")
-    ax.axis("off")
-
-    table = ax.table(
-        cellText=df.values, colLabels=df.columns, cellLoc="center", loc="center"
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(PLOT_STYLE["fonts"]["value"])
-    table.scale(
-        table_style["scale_x"],
-        table_style["scale_y"],
-    )
-
-    # Style table borders and header
-    for (row, _), cell in table.get_celld().items():
-        if row == 0:
-            cell.set_text_props(weight="bold", fontsize=PLOT_STYLE["fonts"]["label"])
-        cell.set_edgecolor(PLOT_STYLE["colors"]["edge"])
-        cell.set_linewidth(PLOT_STYLE["lines_and_markers"]["linewidth"])
-
-    ax.set_title(
-        title,
-        fontsize=PLOT_STYLE["fonts"]["title"],
-        pad=table_style["title_pad"],
-        fontweight="bold",
-    )
-
-    plt.tight_layout()
-
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)
-    fig.savefig(
-        save_path / f"{file_name}_temperature_comparison.png",
-        dpi=PLOT_STYLE["figure"]["dpi"],
-        bbox_inches="tight",
-        facecolor=PLOT_STYLE["figure"]["facecolor"],
-    )
-    plt.close(fig)
+    csv_path = save_path / f"{file_name}_temperature_comparison.csv"
+    df.to_csv(csv_path, index=False)
 
-    print(f"✓ Table saved: {save_path / f'{file_name}_temperature_comparison.png'}")
+    print(f"✓ Table saved: {csv_path}")
 
 
 # --- T-s diagram: computed vs. reference cycle ------------------------------
@@ -545,6 +494,8 @@ def plot_ts_diagram(
     fig.patch.set_facecolor(plot_style["figure"]["facecolor"])
 
     if save_path is not None:
+        if file_name is None:
+            raise ValueError("file_name is required when save_path is given.")
         save_path = Path(save_path)
         save_path.mkdir(parents=True, exist_ok=True)
         fig.savefig(
@@ -554,8 +505,6 @@ def plot_ts_diagram(
             facecolor=plot_style["figure"]["facecolor"],
         )
         print(f"✓ Figure saved: {save_path / f'{file_name}_ts_diagram.png'}")
-    if file_name is None:
-        raise ValueError("file_name is required when save_path is given.")
 
     return fig, ax
 
@@ -582,11 +531,11 @@ def validate_plant(
         Path to the reference CSV file, with columns for connection
         label, temperature [°C], and entropy [kJ/(kg K)].
     title_name : str, optional
-        Title used for printed output and the saved table.
+        Title used for the printed output only.
     file_name : str, optional
-        Base file name used when saving the table and T-s diagram.
+        Base file name used when saving the comparison table and the T-s diagram.
     save_path : str or Path, optional
-        Directory to save the table and T-s diagram as PNG files.
+        Directory to save the comparison table (CSV) and the T-s diagram (PNG).
         If None, nothing is saved to disk.
 
     Returns
@@ -608,9 +557,7 @@ def validate_plant(
     if save_path is not None:
         if file_name is None:
             raise ValueError("file_name is required when save_path is given.")
-        save_table_as_png(
-            df_comp, f"{title_name} - Temperature Comparison", save_path, file_name
-        )
+        save_comparison_as_csv(df_comp, save_path, file_name)
 
     fig, _ = plot_ts_diagram(
         plant,
