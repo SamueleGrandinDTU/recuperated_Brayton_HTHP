@@ -663,6 +663,19 @@ _LCOH_CATEGORY_COLORS = PLOT_STYLE["lcoh_category_colors"]
 _MIN_LABEL_HEIGHT = 0.045
 
 
+def _load_breakdown(breakdown):
+    """Breakdown table as one DataFrame.
+
+    Accepts a DataFrame, a str/Path to a CSV, or a list/tuple of these
+    (concatenated in order).
+    """
+    if isinstance(breakdown, (list, tuple)):
+        return pd.concat([_load_breakdown(b) for b in breakdown], ignore_index=True)
+    if isinstance(breakdown, (str, Path)):
+        return pd.read_csv(breakdown)
+    return breakdown
+
+
 def plot_lcoh_breakdown_stacked(
     breakdown,
     panels=(("DK1 Energinet", "fixed"), ("DE Energinet", "fixed")),
@@ -701,7 +714,7 @@ def plot_lcoh_breakdown_stacked(
     -------
     fig, axes
     """
-    df = pd.read_csv(breakdown) if isinstance(breakdown, (str, Path)) else breakdown
+    df = _load_breakdown(breakdown)
     if df is None or df.empty:
         print("Warning: No data provided")
         return None, None
@@ -728,8 +741,18 @@ def plot_lcoh_breakdown_stacked(
     for forecast, demand in panels:
         rows = df[(df["Forecast"] == forecast) & (df["Demand"] == demand)]
         if rows.empty:
+            # Tables that only carry the price zone ("DK1", "DE"): match the
+            # zone part of the requested forecast ("DK1 Energinet" -> "DK1").
+            zone = str(forecast).split()[0]
+            rows = df[(df["Forecast"] == zone) & (df["Demand"] == demand)]
+        if rows.empty:
             raise ValueError(
                 f"No rows for forecast '{forecast}' and demand '{demand}'."
+            )
+        if rows["Cycle"].duplicated().any():
+            raise ValueError(
+                f"Several rows per cycle for forecast '{forecast}' and demand "
+                f"'{demand}'; check the breakdown tables."
             )
         rows = rows.set_index("Cycle").loc[cycles]
         heat = rows["Discounted heat [MWh]"]
