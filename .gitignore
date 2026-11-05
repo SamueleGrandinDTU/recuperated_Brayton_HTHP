@@ -9,3 +9,6 @@
 
 # ignore settings
 /.vscode
+
+# ignore temporary results
+/results/temporary
