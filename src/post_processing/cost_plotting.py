@@ -1,5 +1,6 @@
 """Cost plotting, comparable across one or several cycles."""
 
+import math
 import textwrap
 from pathlib import Path
 from typing import Optional, Union
@@ -10,15 +11,13 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-from src import PLOT_STYLE
+from src import PLOT_STYLE, add_legend, create_figure, save_figure
 
-# Style from plot_style
+# Style from plot_style (fonts are the global ones set by plot_style.py)
 _COLORS = PLOT_STYLE["colors"]
-_FONTS = PLOT_STYLE["fonts"]
-_GRID = PLOT_STYLE["grid"]
-_AXES = PLOT_STYLE["axes"]
-_TICKS = PLOT_STYLE["ticks"]
 _LINEWIDTH = PLOT_STYLE["lines_and_markers"]["linewidth"]
+_ANNOTATION_FONT = PLOT_STYLE["paper_fonts"]["annotation"]  # values on the plots
+_MARKER_SIZE = 5  # [pt] markers of the delta plot
 
 # Cycle colors (same scheme as in the T-s and exergy plots):
 # PLOT_STYLE["cycle_colors"], dark for standalone and light for TES-integrated,
@@ -39,6 +38,9 @@ _DEMAND_LABELS = {
 _COMPONENT_COLORS = PLOT_STYLE["component_colors"]
 _COMPONENT_ORDER = list(_COMPONENT_COLORS)
 _UNKNOWN_COMPONENT_COLOR = "#7f7f7f"  # grey, for a component not in the scheme
+
+# Columns of the legend of the CAPEX plot (inside the axes)
+_LEGEND_COLUMNS = 4
 
 # Display names of the components (PLOT_STYLE["component_names"], e.g.
 # "sink 2" -> "HX2"): only what is written on the plots changes, the names
@@ -95,6 +97,9 @@ def plot_component_cost_stacked(
     order and colors follow the scheme PLOT_STYLE["component_colors"] so they
     stay consistent across figures.
 
+    The figure has the fixed single-column paper width and square axes of the
+    same size as all the other diagrams; the legend is above the axes (the figure grows in height).
+
     Parameters
     ----------
     component_cost : pd.DataFrame, str/Path, or list of either
@@ -110,7 +115,7 @@ def plot_component_cost_stacked(
     save_path : str or Path, optional
         Directory to save the figure.
     file_name : str, optional
-        Base name for the saved file.
+        Base name for the saved file; saved as ``<file_name>_cost_stacked.png``.
 
     Returns
     -------
@@ -166,9 +171,9 @@ def plot_component_cost_stacked(
 
     x = np.arange(len(df_list))
 
-    fig, ax = plt.subplots(
-        figsize=PLOT_STYLE["figure"]["figsize"], dpi=PLOT_STYLE["figure"]["dpi"]
-    )
+    # one legend entry per display name (e.g. "sink" and "sink 1" are both HX1)
+    n_entries = len({_display_name(c) for c in ordered_components})
+    fig, ax = create_figure(legend_rows=math.ceil(n_entries / _LEGEND_COLUMNS))
 
     bottoms = np.zeros(len(df_list))
     for comp in ordered_components:
@@ -190,72 +195,29 @@ def plot_component_cost_stacked(
         )
         bottoms += values
 
-    ax.set_ylabel(r"CAPEX [M€]", fontsize=PLOT_STYLE["fonts"]["label"])
-    ax.set_xlabel(r"Cycle", fontsize=PLOT_STYLE["fonts"]["label"])
+    ax.set_ylabel(r"CAPEX [M€]")
+    ax.set_xlabel(r"Cycle")
 
     ax.set_xticks(x)
-    ax.set_xticklabels(
-        wrapped_labels,
-        ha="center",
-        rotation=0,
-        fontsize=PLOT_STYLE["fonts"]["tick"],
-    )
+    ax.set_xticklabels(wrapped_labels, ha="center", rotation=0)
     # Scales to however many cycles are being compared, instead of the fixed
     # (-1, 1) that only ever fit a single bar.
     ax.set_xlim(-0.75, len(df_list) - 1 + 0.75)
 
-    # Legend on the right, outside the plot area
-    # one legend entry per display name (e.g. "sink" and "sink 1" are both HX1)
     handles, labels = ax.get_legend_handles_labels()
-    unique = {}
-    for handle, label in zip(handles, labels):
-        unique.setdefault(label, handle)
-
-    ax.legend(
+    unique = dict(zip(labels, handles))
+    add_legend(
+        fig,
         list(unique.values()),
         list(unique.keys()),
-        fontsize=PLOT_STYLE["fonts"]["legend"],
-        framealpha=0.95,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 1.02),
-        ncol=min(len(unique), 4),
+        ncol=min(len(unique), _LEGEND_COLUMNS),
+        ax=ax,
     )
-
-    ax.grid(
-        axis="y",
-        alpha=PLOT_STYLE["grid"]["alpha"],
-        linestyle="--",
-        linewidth=PLOT_STYLE["grid"]["linewidth"],
-    )
-    ax.set_axisbelow(True)
-
-    for spine in ax.spines.values():
-        spine.set_color(PLOT_STYLE["axes"]["spine_color"])
-        spine.set_linewidth(PLOT_STYLE["axes"]["spine_linewidth"])
-
-    ax.tick_params(
-        axis=PLOT_STYLE["ticks"]["axis"],
-        pad=PLOT_STYLE["ticks"]["pad"],
-        which=PLOT_STYLE["ticks"]["which"],
-        color=PLOT_STYLE["ticks"]["color"],
-        labelcolor=PLOT_STYLE["ticks"]["labelcolor"],
-        direction=PLOT_STYLE["ticks"]["direction"],
-    )
-
-    ax.set_box_aspect(PLOT_STYLE["axes"]["box_aspect"])
-    ax.set_facecolor(PLOT_STYLE["axes"]["facecolor"])
-    fig.patch.set_facecolor(PLOT_STYLE["figure"]["facecolor"])
 
     if save_path is not None:
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            save_path / f"{file_name}_cost_stacked.png",
-            dpi=PLOT_STYLE["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=PLOT_STYLE["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {save_path / f'{file_name}_cost_stacked.png'}")
+        if file_name is None:
+            raise ValueError("`file_name` is required when `save_path` is given.")
+        save_figure(fig, save_path, f"{file_name}_cost_stacked")
 
     return fig, ax
 
@@ -314,8 +276,10 @@ def plot_lcoh_scenarios_stacked(
 ):
     """Grouped vertical bar chart of the LCOH: one group per scenario
     (low / central / high), one bar per cycle inside each group. Color
-    encodes the cycle (blue shades for base, red shades for intercooled),
-    so a cycle keeps its color in every group.
+    encodes the cycle, so a cycle keeps its color in every group.
+
+    Single-column paper width, square axes, legend above the axes (the
+    figure grows in height).
 
     Parameters
     ----------
@@ -372,11 +336,8 @@ def plot_lcoh_scenarios_stacked(
     bar_w = group_width / n_cycles
     x_groups = np.arange(len(scenarios), dtype=float)
 
-    fig, ax = plt.subplots(
-        figsize=PLOT_STYLE["figure"]["figsize"],
-        dpi=PLOT_STYLE["figure"]["dpi"],
-        facecolor=PLOT_STYLE["figure"]["facecolor"],
-    )
+    legend_cols = math.ceil(n_cycles / 2)
+    fig, ax = create_figure(legend_rows=math.ceil(n_cycles / legend_cols))
 
     for g in range(len(scenarios)):
         for i, df in enumerate(tables):
@@ -391,71 +352,36 @@ def plot_lcoh_scenarios_stacked(
                 edgecolor=_COLORS["edge"],
                 linewidth=_LINEWIDTH,
             )
+            # the value is written vertically: the bars are too narrow for it
             ax.text(
                 x,
-                value + 0.4,
+                value + 0.01 * (max(float(d[lcoh_kind].max()) for d in tables) - y_min),
                 f"{value:.1f}",
                 va="bottom",
                 ha="center",
-                fontsize=_FONTS["small_label"],
+                rotation=90,
+                fontsize=_ANNOTATION_FONT,
             )
 
-    all_values = [float(df[lcoh_kind].max()) for df in tables]
-    ax.set_ylim(y_min, max(all_values) * 1.06)
+    top = max(float(df[lcoh_kind].max()) for df in tables)
+    ax.set_ylim(y_min, y_min + (top - y_min) * 1.2)  # room for the values
     ax.set_xticks(x_groups)
     ax.set_xticklabels([str(s).capitalize() for s in scenarios])
-    ax.set_ylabel("LCOH [€/MWh]", fontsize=_FONTS["label"])
-    ax.set_xlabel("Scenario", fontsize=_FONTS["label"])
+    ax.set_ylabel("LCOH [€/MWh]")
+    ax.set_xlabel("Scenario")
 
-    ax.legend(
-        handles=[
-            mpatches.Patch(
-                facecolor=colors[i], edgecolor=_COLORS["edge"], label=cycle_labels[i]
-            )
-            for i in range(n_cycles)
-        ],
-        fontsize=_FONTS["legend"],
-        framealpha=0.95,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 1.02),
-        ncol=int(np.ceil(n_cycles / 2)),
-    )
-
-    ax.grid(
-        axis="y",
-        alpha=_GRID["alpha"],
-        linestyle="--",
-        linewidth=_GRID["linewidth"],
-    )
-    ax.set_axisbelow(True)
-    ax.set_facecolor(_AXES["facecolor"])
-    for spine in ax.spines.values():
-        spine.set_color(_AXES["spine_color"])
-        spine.set_linewidth(_AXES["spine_linewidth"])
-    ax.tick_params(
-        axis=_TICKS["axis"],
-        pad=_TICKS["pad"],
-        which=_TICKS["which"],
-        color=_TICKS["color"],
-        labelcolor=_TICKS["labelcolor"],
-        direction=_TICKS["direction"],
-        labelsize=_FONTS["small_label"],
-    )
-    fig.tight_layout()
+    handles = [
+        mpatches.Patch(
+            facecolor=colors[i], edgecolor=_COLORS["edge"], label=cycle_labels[i]
+        )
+        for i in range(n_cycles)
+    ]
+    add_legend(fig, handles, ncol=legend_cols, ax=ax)
 
     if save_path is not None:
         if file_name is None:
             raise ValueError("`file_name` is required when `save_path` is given.")
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        out = save_path / f"{file_name}_lcoh_scenarios.png"
-        fig.savefig(
-            out,
-            dpi=PLOT_STYLE["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=PLOT_STYLE["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {out}")
+        save_figure(fig, save_path, f"{file_name}_lcoh_scenarios")
 
     return fig, ax
 
@@ -476,10 +402,11 @@ def plot_delta_lcoh_analysis(
     market: delta = LCOH(TES-integrated) - LCOH(standalone). Positive means
     the LCOH increased with the TES, negative means it decreased.
 
-    One panel per market (DK1 | DE). Inside each panel the x-axis holds the
-    scenarios (low / central / high); the marker shape encodes the heat
-    demand (square = fixed, circle = free) and the color encodes the layout
-    (blue shades for base, red shades for intercooled).
+    One square panel per market (DK1 | DE; one or two markets). Inside each
+    panel the x-axis holds the scenarios (low / central / high); the marker
+    shape encodes the heat demand (square = fixed, circle = free) and the
+    color encodes the layout. Paper width: single for one market, double for
+    two; the legend is above the axes.
 
     Parameters
     ----------
@@ -541,17 +468,34 @@ def plot_delta_lcoh_analysis(
     pad = 0.1 * (hi - lo if hi > lo else 1.0)  # margin above / below the markers
     ylim = (lo - pad, hi + pad)
 
-    fig_w, fig_h = PLOT_STYLE["figure"]["figsize"]
-    fig, axes = plt.subplots(
-        1,
-        len(markets),
-        figsize=(fig_w * len(markets), fig_h),
-        dpi=PLOT_STYLE["figure"]["dpi"],
-        facecolor=PLOT_STYLE["figure"]["facecolor"],
-        sharey=True,
-        squeeze=False,
+    handles = [
+        mpatches.Patch(
+            facecolor=colors[i], edgecolor=_COLORS["edge"], label=pair_labels[i]
+        )
+        for i in range(n_pairs)
+    ] + [
+        Line2D(
+            [],
+            [],
+            linestyle="none",
+            marker=_DEMAND_MARKERS.get(d, "D"),
+            markersize=_MARKER_SIZE,
+            markerfacecolor="white",
+            markeredgecolor=_COLORS["edge"],
+            label=_DEMAND_LABELS.get(d, f"{d.capitalize()} heat demand schedule"),
+        )
+        for d in demands
+    ]
+    # one row of legend in the double-width figure; in the single-width one
+    # the long labels of the heat demands only fit one per row
+    legend_cols = len(handles) if len(markets) > 1 else 1
+
+    fig, axes = create_figure(
+        n_cols=len(markets),
+        titles=True,
+        legend_rows=math.ceil(len(handles) / legend_cols),
     )
-    axes = axes[0]
+    axes = np.atleast_1d(axes)
 
     x_groups = np.arange(len(scenarios), dtype=float)
     step = 0.3  # horizontal spacing between layouts inside a scenario
@@ -565,11 +509,10 @@ def plot_delta_lcoh_analysis(
                 col = f"{market} {demand}"
                 if col not in delta.columns:
                     continue
-                y = delta[col].to_numpy()
                 ax.scatter(
                     x_groups + dx,
-                    y,
-                    s=80,
+                    delta[col].to_numpy(),
+                    s=_MARKER_SIZE**2,
                     marker=_DEMAND_MARKERS.get(demand, "D"),
                     color=colors[p],
                     edgecolor=_COLORS["edge"],
@@ -581,74 +524,18 @@ def plot_delta_lcoh_analysis(
         ax.set_xlim(-0.6, len(scenarios) - 1 + 0.6)
         ax.set_xticks(x_groups)
         ax.set_xticklabels([str(s).capitalize() for s in scenarios])
-        ax.set_xlabel("Scenario", fontsize=_FONTS["label"])
-        ax.set_title(f"({chr(ord('a') + k)}) {market}", fontsize=_FONTS["title"])
+        ax.set_xlabel("Scenario")
+        ax.set_title(f"({chr(ord('a') + k)}) {market}", pad=4)
+        if k > 0:  # same y axis as the first panel
+            ax.tick_params(labelleft=False)
 
-        ax.grid(
-            axis="y",
-            alpha=_GRID["alpha"],
-            linestyle="--",
-            linewidth=_GRID["linewidth"],
-        )
-        ax.set_axisbelow(True)
-        ax.set_facecolor(_AXES["facecolor"])
-        for spine in ax.spines.values():
-            spine.set_color(_AXES["spine_color"])
-            spine.set_linewidth(_AXES["spine_linewidth"])
-        ax.tick_params(
-            axis=_TICKS["axis"],
-            pad=_TICKS["pad"],
-            which=_TICKS["which"],
-            color=_TICKS["color"],
-            labelcolor=_TICKS["labelcolor"],
-            direction=_TICKS["direction"],
-            labelsize=_FONTS["tick"],
-        )
-        ax.set_box_aspect(_AXES["box_aspect"])
-
-    axes[0].set_ylabel("ΔLCOH (TES − standalone) [€/MWh]", fontsize=_FONTS["label"])
-
-    handles = [
-        mpatches.Patch(
-            facecolor=colors[i], edgecolor=_COLORS["edge"], label=pair_labels[i]
-        )
-        for i in range(n_pairs)
-    ] + [
-        Line2D(
-            [],
-            [],
-            linestyle="none",
-            marker=_DEMAND_MARKERS.get(d, "D"),
-            markersize=10,
-            markerfacecolor="white",
-            markeredgecolor=_COLORS["edge"],
-            label=_DEMAND_LABELS.get(d, f"{d.capitalize()} heat demand schedule"),
-        )
-        for d in demands
-    ]
-    fig.legend(
-        handles=handles,
-        fontsize=_FONTS["tick"],
-        framealpha=0.95,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 1.0),
-        ncol=len(handles),
-    )
-    fig.tight_layout()
+    axes[0].set_ylabel("ΔLCOH [€/MWh]")  # TES − standalone, see docstring
+    add_legend(fig, handles, ncol=legend_cols)
 
     if save_path is not None:
         if file_name is None:
             raise ValueError("`file_name` is required when `save_path` is given.")
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        out = save_path / f"{file_name}_delta_lcoh.png"
-        fig.savefig(
-            out,
-            dpi=PLOT_STYLE["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=PLOT_STYLE["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {out}")
+        save_figure(fig, save_path, f"{file_name}_delta_lcoh")
 
     return fig, axes
 
@@ -658,8 +545,7 @@ def plot_delta_lcoh_analysis(
 # CAPEX, Electricity, O&M, Labour and Decommissioning).
 _LCOH_CATEGORY_COLORS = PLOT_STYLE["lcoh_category_colors"]
 
-# A segment thinner than this fraction of the y axis gets its percentage
-# above the bar instead of inside the segment.
+# A segment thinner than this fraction of the y axis gets no percentage.
 _MIN_LABEL_HEIGHT = 0.045
 
 
@@ -688,7 +574,8 @@ def plot_lcoh_breakdown_stacked(
     Plot the contributions to the LCOH [EUR/MWh] of the central scenario as
     one stacked bar per cycle (CAPEX, the OPEX items electricity, O&M and
     labour, and decommissioning), with their percentage share of the LCOH.
-    One panel per entry of `panels`.
+    One square panel per entry of `panels` (one or two): double paper width
+    for two panels, single for one; the legend is above the axes.
 
     Parameters
     ----------
@@ -696,7 +583,7 @@ def plot_lcoh_breakdown_stacked(
         The central-scenario breakdown table (lcoh_central_breakdown.csv)
         with the columns Cycle, Forecast, Demand, Electricity [EUR],
         O&M [EUR], Labour [EUR], CAPEX [EUR], Decommissioning [EUR] and
-        Discounted heat [MWh].
+        Discounted heat [MWh]. A list of tables is concatenated.
     panels : sequence of (forecast, demand)
         One panel per entry, left to right, e.g. ("DK1 Energinet", "fixed").
         Default: DK1 and DE with the Energinet forecast, fixed heat demand.
@@ -769,24 +656,25 @@ def plot_lcoh_breakdown_stacked(
         )
 
     y_max = max(c.sum(axis=1).max() for c in contributions)
-    y_top = y_max * 1.25  # room above the bars for the totals
+    y_top = y_max * 1.05
 
-    fig_w, fig_h = PLOT_STYLE["figure"]["figsize"]
-    fig, axes = plt.subplots(
-        1,
-        len(panels),
-        figsize=(fig_w * len(panels), fig_h),
-        dpi=PLOT_STYLE["figure"]["dpi"],
-        facecolor=PLOT_STYLE["figure"]["facecolor"],
-        sharey=True,
-        squeeze=False,
+    handles = [
+        mpatches.Patch(facecolor=color, edgecolor=_COLORS["edge"], label=label)
+        for label, color in _LCOH_CATEGORY_COLORS.items()
+    ]
+    # one legend row in the double-width figure, two in the single one
+    legend_cols = len(handles) if len(panels) > 1 else math.ceil(len(handles) / 2)
+
+    fig, axes = create_figure(
+        n_cols=len(panels),
+        titles=True,
+        legend_rows=math.ceil(len(handles) / legend_cols),
     )
-    axes = axes[0]
+    axes = np.atleast_1d(axes)
 
     for k, (ax, contrib, title) in enumerate(zip(axes, contributions, panel_titles)):
         total = contrib.sum(axis=1).to_numpy()
         bottoms = np.zeros(len(cycles))
-        thin = [[] for _ in cycles]  # thin segments: percentage goes above the bar
 
         for category, color in _LCOH_CATEGORY_COLORS.items():
             values = contrib[category].to_numpy()
@@ -794,13 +682,14 @@ def plot_lcoh_breakdown_stacked(
                 x,
                 values,
                 bottom=bottoms,
-                width=0.6,
+                width=0.8,
                 color=color,
                 edgecolor=_COLORS["edge"],
                 linewidth=_LINEWIDTH,
             )
-            # percentage share of the LCOH inside each segment
-            for i, (xi, v, b, t) in enumerate(zip(x, values, bottoms, total)):
+            # percentage share of the LCOH inside each segment (thin
+            # segments get none: it would not fit)
+            for xi, v, b, t in zip(x, values, bottoms, total):
                 if v >= _MIN_LABEL_HEIGHT * y_top:
                     ax.text(
                         xi,
@@ -808,76 +697,26 @@ def plot_lcoh_breakdown_stacked(
                         f"{100 * v / t:.1f} %",
                         ha="center",
                         va="center",
-                        fontsize=_FONTS["legend"],
+                        fontsize=_ANNOTATION_FONT,
                         color="black",
                     )
-                else:
-                    name = "Decomm." if category == "Decommissioning" else category
-                    thin[i].append(f"{name} {100 * v / t:.1f} %")
             bottoms += values
 
         ax.set_ylim(0, y_top)
         ax.set_xticks(x)
-        ax.set_xticklabels(
-            wrapped_labels,
-            ha="center",
-            rotation=0,
-            fontsize=_FONTS["tick"],
-        )
-        ax.set_xlim(-0.75, len(cycles) - 1 + 0.75)
-        ax.set_xlabel("Cycle", fontsize=_FONTS["label"])
-        ax.set_title(f"({chr(ord('a') + k)}) {title}", fontsize=_FONTS["title"])
+        ax.set_xticklabels(wrapped_labels, ha="center", rotation=0)
+        ax.set_xlim(-0.6, len(cycles) - 1 + 0.6)
+        ax.set_xlabel("Cycle")
+        ax.set_title(f"({chr(ord('a') + k)}) {title}", pad=4)
+        if k > 0:  # same y axis as the first panel
+            ax.tick_params(labelleft=False)
 
-        ax.grid(
-            axis="y",
-            alpha=_GRID["alpha"],
-            linestyle="--",
-            linewidth=_GRID["linewidth"],
-        )
-        ax.set_axisbelow(True)
-        for spine in ax.spines.values():
-            spine.set_color(_AXES["spine_color"])
-            spine.set_linewidth(_AXES["spine_linewidth"])
-        ax.tick_params(
-            axis=_TICKS["axis"],
-            pad=_TICKS["pad"],
-            which=_TICKS["which"],
-            color=_TICKS["color"],
-            labelcolor=_TICKS["labelcolor"],
-            direction=_TICKS["direction"],
-            labelsize=_FONTS["tick"],
-        )
-        ax.set_box_aspect(_AXES["box_aspect"])
-        ax.set_facecolor(_AXES["facecolor"])
-
-    axes[0].set_ylabel("LCOH [€/MWh]", fontsize=_FONTS["label"])
-
-    handles = [
-        mpatches.Patch(facecolor=color, edgecolor=_COLORS["edge"], label=label)
-        for label, color in _LCOH_CATEGORY_COLORS.items()
-    ]
-    fig.legend(
-        handles=handles,
-        fontsize=_FONTS["label"] + 1,
-        framealpha=0.95,
-        loc="lower center",
-        bbox_to_anchor=(0.5, 1.02),
-        ncol=len(handles),
-    )
-    fig.tight_layout()
+    axes[0].set_ylabel("LCOH [€/MWh]")
+    add_legend(fig, handles, ncol=legend_cols)
 
     if save_path is not None:
         if file_name is None:
             raise ValueError("`file_name` is required when `save_path` is given.")
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        out = save_path / f"{file_name}_lcoh_breakdown.png"
-        fig.savefig(
-            out,
-            dpi=PLOT_STYLE["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=PLOT_STYLE["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {out}")
+        save_figure(fig, save_path, f"{file_name}_lcoh_breakdown")
 
     return fig, axes
