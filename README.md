@@ -8,7 +8,7 @@ S. Grandin, A. Vecchi, A. Sciacovelli, "Techno-economic assessment of thermal en
 ## Table of Contents
 
 * [Overview](#overview)
-* [Directory Structure](#directory-structure-and-purpose)
+* [Directory Structure and Purpose](#directory-structure-and-purpose)
 * [Repository Scope](#repository-scope)
 * [Getting Started](#getting-started)
 * [Citing this study](#citing-this-study)
@@ -38,7 +38,7 @@ The models provided enable:
 
 The thermodynamic models are in `src/models`, the optimization in `src/plant_operation.py` and the economic analysis in `src/cost_analysis.py` and `src/lcoh_analysis.py`.
 
-## Directory Structure and purpose
+## Directory Structure and Purpose
 
 * `data/` - Input data used to parameterise and validate simulations (validation reference, electricity prices and price scenarios).
 * `docs/` - Repository design document and references.
