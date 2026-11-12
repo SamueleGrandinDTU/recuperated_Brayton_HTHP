@@ -7,12 +7,11 @@ from a CSV file of state points, for one cycle or several on the same graph.
 
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from fluprodia import FluidPropertyDiagram
 
-from src import PLOT_STYLE
+from src import PLOT_STYLE, create_figure, save_figure
 
 # Two consecutive state points whose pressures differ by less than this
 # (relative) are joined by an isobar; otherwise by a straight segment
@@ -180,7 +179,12 @@ def _cycle_from_csv(item, diagram, fluid=_DIAGRAM_FLUID):
 
 
 def _draw_ts_panel(ax, items, cycle_labels, colors, label_all_states):
-    """Draw the cycles `items` (plants / CSVs, overlaid) on one axes."""
+    """Draw the cycles `items` (plants / CSVs, overlaid) on one axes.
+
+    The size of the axes, the fonts, the spines and the ticks come from
+    create_figure and the global style; only what is specific of the T-s
+    diagram is set here.
+    """
 
     plot_style = PLOT_STYLE
 
@@ -250,9 +254,9 @@ def _draw_ts_panel(ax, items, cycle_labels, colors, label_all_states):
         y_max=y_max,
     )
 
-    # Adjust isoline label font size
+    # Isoline label font size
     for text in ax.texts:
-        text.set_fontsize(plot_style["fonts"]["isoline"])
+        text.set_fontsize(plot_style["paper_fonts"]["annotation"])
 
     # Plot the T-s curves of each cycle, in the order given (later cycles
     # are drawn on top of earlier ones)
@@ -293,7 +297,7 @@ def _draw_ts_panel(ax, items, cycle_labels, colors, label_all_states):
                 s_state + offset_x,
                 T_state + offset_y,
                 conn_label,
-                fontsize=plot_style["fonts"]["value"],
+                fontsize=plot_style["paper_fonts"]["annotation"],
                 color=plot_style["colors"]["label"],
                 ha=ha_val,
                 va=va_val,
@@ -309,14 +313,11 @@ def _draw_ts_panel(ax, items, cycle_labels, colors, label_all_states):
                 linewidth=plot_style["lines_and_markers"]["linewidth"],
                 label=label,
             )
-        ax.legend(
-            loc="upper left",
-            fontsize=plot_style["fonts"]["legend"],
-            framealpha=0.95,
-        )
+        ax.legend(loc="upper left", framealpha=0.95)
 
+    # T-s diagrams have a light grid in both directions (create_figure sets
+    # the horizontal one only)
     grid_style = plot_style["grid"]
-
     ax.grid(
         True,
         color=grid_style["color"],
@@ -325,36 +326,11 @@ def _draw_ts_panel(ax, items, cycle_labels, colors, label_all_states):
         alpha=grid_style["alpha"],
     )
 
-    for spine in ax.spines.values():
-        spine.set_color(plot_style["axes"]["spine_color"])
-        spine.set_linewidth(plot_style["axes"]["spine_linewidth"])
-
-    ax.set_box_aspect(plot_style["axes"]["box_aspect"])
-    ax.set_facecolor(plot_style["figure"]["facecolor"])
-
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
 
-    ax.set_xlabel(
-        r"Entropy $\left[\mathrm{\frac{kJ}{kg\,K}}\right]$",
-        fontsize=plot_style["fonts"]["label"],
-    )
-    ax.set_ylabel(
-        r"Temperature $\left[^\circ\mathrm{C}\right]$",
-        fontsize=plot_style["fonts"]["label"],
-    )
-
-    ticks_style = plot_style["ticks"]
-
-    ax.tick_params(
-        axis=ticks_style["axis"],
-        pad=ticks_style["pad"],
-        which=ticks_style["which"],
-        color=ticks_style["color"],
-        labelcolor=ticks_style["labelcolor"],
-        direction=ticks_style["direction"],
-        labelsize=plot_style["fonts"]["tick"],
-    )
+    ax.set_xlabel(r"Entropy $\left[\mathrm{\frac{kJ}{kg\,K}}\right]$")
+    ax.set_ylabel(r"Temperature $\left[^\circ\mathrm{C}\right]$")
 
 
 def plot_ts_diagram(
@@ -366,7 +342,10 @@ def plot_ts_diagram(
     label_all_states=False,
 ):
     """
-    Create and save a T-s diagram: one graph, or several graphs side by side.
+    Create and save a T-s diagram: one graph, or two graphs side by side.
+
+    The figure has the fixed paper width of create_figure (single or double
+    column) and square axes of the same size as all the other diagrams.
 
     Parameters
     ----------
@@ -377,12 +356,13 @@ def plot_ts_diagram(
         can be mixed.
         - one item: a single graph.
         - flat list ``[a, b]``: one graph with both cycles overlaid.
-        - list of lists ``[[a, b], [c, d]]``: one graph per inner list, side
-          by side from left to right, each with its own cycles overlaid and
-          labelled (a), (b), ... (here a and b on the left graph, c and d on
-          the right one). Each graph has its own axis limits.
+        - list of two lists ``[[a, b], [c, d]]``: one graph per inner list,
+          side by side from left to right, each with its own cycles
+          overlaid and labelled (a), (b) (here a and b on the left graph,
+          c and d on the right one). Each graph has its own axis limits.
+          At most two graphs (the paper widths are single and double column).
     file_name : str, optional
-        Base name for the saved file (will be saved as PNG)
+        Base name for the saved file; saved as ``<file_name>_ts_diagram.png``.
     save_path : str or Path, optional
         Directory to save the figure. If None, the figure is not saved.
     cycle_labels : list of str, or list of lists of str, optional
@@ -404,10 +384,8 @@ def plot_ts_diagram(
     Returns
     -------
     fig, ax : matplotlib figure and axis (single graph), or figure and array
-        of axes (several graphs)
+        of axes (two graphs)
     """
-
-    plot_style = PLOT_STYLE
 
     # normalise the input to a list of panels, each a list of cycles
     if isinstance(plant, (list, tuple)):
@@ -434,41 +412,21 @@ def plot_ts_diagram(
     # colours of each panel
     panel_colors = _panel_colors(colors, panels)
 
-    w, h = plot_style["figure"]["figsize"]
-    fig, axes = plt.subplots(
-        1,
-        n_panels,
-        figsize=(w * n_panels, h),
-        dpi=plot_style["figure"]["dpi"],
-        squeeze=False,
-    )
-    axes = axes.ravel()
+    # fixed width, square axes; the panel titles (a), (b) need their own strip
+    fig, axes = create_figure(n_cols=n_panels, titles=n_panels > 1)
+    axes = np.atleast_1d(axes)
 
     for k, (ax, items, labels, cols) in enumerate(
         zip(axes, panels, panel_labels, panel_colors)
     ):
         _draw_ts_panel(ax, items, labels, cols, label_all_states)
         if n_panels > 1:
-            ax.set_title(
-                f"({chr(ord('a') + k)})", fontsize=plot_style["fonts"]["title"], pad=10
-            )
-
-    fig.patch.set_facecolor(plot_style["figure"]["facecolor"])
-    if n_panels > 1:
-        fig.tight_layout()
+            ax.set_title(f"({chr(ord('a') + k)})", pad=4)
 
     if save_path is not None:
         if file_name is None:
             raise ValueError("file_name is required when save_path is given.")
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            save_path / f"{file_name}_ts_diagram.png",
-            dpi=plot_style["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=plot_style["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {save_path / f'{file_name}_ts_diagram.png'}")
+        save_figure(fig, save_path, f"{file_name}_ts_diagram")
 
     if n_panels == 1:
         return fig, axes[0]

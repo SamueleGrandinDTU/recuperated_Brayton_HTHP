@@ -3,41 +3,38 @@ src/plotting.py
 
 Plotting helpers for the results of ``plant_operation.optimize_operational_strategy``.
 
-
+Same fixed paper width as the other figures (the double one, 6.18 in: three y
+axes do not fit in the single width); the panels are not squares here, their
+shape is PLOT_STYLE["operational_strategy"]["aspect"] (height / width), and the
+height of the figure adapts to the rows, titles and legend.
 """
 
+import math
 from pathlib import Path
 from typing import Optional, Union
 
-import matplotlib.pyplot as plt
+import numpy as np
 
-from src import PLOT_STYLE
+from src import PLOT_STYLE, add_legend, create_figure, save_figure
 
 _COLORS = PLOT_STYLE["colors"]
-_FONTS = PLOT_STYLE["fonts"]
-_GRID = PLOT_STYLE["grid"]
 _AXES = PLOT_STYLE["axes"]
 _TICKS = PLOT_STYLE["ticks"]
 _LINEWIDTH = PLOT_STYLE["lines_and_markers"]["linewidth"]
 
-# Colors, font sizes and layout of this figure (PLOT_STYLE["operational_strategy"]).
-# The fonts are larger than the project-wide ones because the figure is large
-# and gets scaled down to the width of a journal page.
+# Colors and layout of this figure (PLOT_STYLE["operational_strategy"]); the
+# fonts are the global ones set by plot_style.py.
 _OP = PLOT_STYLE["operational_strategy"]
 _OP_COLORS = _OP["colors"]
-_OP_FONTS = _OP["fonts"]
-_TES_AXIS_OFFSET = _OP["tes_axis_offset"]
+_ASPECT = _OP["aspect"]  # panel height / panel width (two columns)
+_ASPECT_SINGLE = _OP["aspect_single"]  # same, one column (wider panel)
+_RIGHT_EXTRA = _OP["right_extra"]  # [in] room for the two right-hand axes
+_COL_GAP = _OP["col_gap"]  # [in] between columns (right axes only in the last)
+_TES_AXIS_OFFSET_PT = _OP["tes_axis_offset_pt"]  # TES axis, outward from the panel
+_MAX_TIME_TICKS = _OP["max_time_ticks"]  # time axis: daily ticks, thinned out
+_LINE_WIDTH = _LINEWIDTH + 0.6  # the curves are a bit thicker than the frame
 
-_STYLE_WIDTH, _STYLE_HEIGHT = PLOT_STYLE["figure"]["figsize"]
-_FIGSIZE = (_STYLE_WIDTH * 2.1, _STYLE_HEIGHT)
-
-# Resolution of the operational strategy figure (higher than the project-wide
-# PLOT_STYLE dpi, which is tuned for the compact diagrams).
-_DPI = 300
-
-# The time axis is labelled every 24 h (daily) as long as the period is at
-# most this many days long; longer periods keep matplotlib's automatic ticks.
-_MAX_DAILY_TICK_DAYS = 14
+_LEGEND_STYLE = dict(handlelength=2.0, columnspacing=1.5)
 
 
 def _plant_E_TES(plant) -> float:
@@ -50,21 +47,12 @@ def _plant_E_TES(plant) -> float:
     return float(plant.E_TES)
 
 
-def _style_axes(ax, grid=True, color=None) -> None:
-    """Apply the shared grid / spine / tick styling to one axes. `color`
-    (optional) colours the right spine, ticks and tick labels."""
+def _style_twin(ax, color=None) -> None:
+    """Style of a twin (right-hand) axes: no grid, same spines and ticks as
+    the main axes. `color` (optional) colours the right spine, ticks and tick
+    labels."""
 
-    if grid:
-        ax.grid(
-            True,
-            color=_GRID["color"],
-            linestyle=_GRID["linestyle"],
-            linewidth=_GRID["linewidth"],
-            alpha=_GRID["alpha"],
-        )
-    else:
-        ax.grid(False)
-    ax.set_facecolor(_AXES["facecolor"])
+    ax.grid(False)
     for spine in ax.spines.values():
         spine.set_color(_AXES["spine_color"])
         spine.set_linewidth(_AXES["spine_linewidth"])
@@ -75,11 +63,10 @@ def _style_axes(ax, grid=True, color=None) -> None:
         color=color or _TICKS["color"],
         labelcolor=color or _TICKS["labelcolor"],
         direction=_TICKS["direction"],
-        labelsize=_OP_FONTS["tick"],
     )
     if color is not None:
         ax.spines["right"].set_color(color)
-        ax.spines["right"].set_linewidth(1.5)
+        ax.spines["right"].set_linewidth(_LINEWIDTH + 0.5)
 
 
 def _draw_operational_strategy(ax1, result, power_axis_max=None, energy_axis_max=None):
@@ -103,12 +90,11 @@ def _draw_operational_strategy(ax1, result, power_axis_max=None, energy_axis_max
         result.el_price,
         where="post",
         color=_OP_COLORS["electricity_price"],
-        linewidth=_LINEWIDTH + 0.6,
+        linewidth=_LINE_WIDTH,
         linestyle="--",
         label="Electricity price",
         zorder=3,
     )
-    _style_axes(ax1)
 
     # thermal power: heat demand and HTHP
     ax2 = ax1.twinx()
@@ -128,18 +114,18 @@ def _draw_operational_strategy(ax1, result, power_axis_max=None, energy_axis_max
         result.Q_HTHP,
         where="post",
         color=_OP_COLORS["hthp"],
-        linewidth=_LINEWIDTH + 0.6,
+        linewidth=_LINE_WIDTH,
         linestyle="-",
         label=r"$\dot{Q}_{\mathrm{HTHP}}$",
         zorder=3,
     )
 
     ax2.set_ylim(0, power_axis_max if power_axis_max is not None else 3.0)
-    _style_axes(ax2, grid=False)
+    _style_twin(ax2)
 
     # TES energy, on its own axis in the colour of its line
     ax3 = ax1.twinx()
-    ax3.spines["right"].set_position(("axes", _TES_AXIS_OFFSET))
+    ax3.spines["right"].set_position(("outward", _TES_AXIS_OFFSET_PT))
     ax3.set_frame_on(True)
     ax3.patch.set_visible(False)
     for side in ("top", "left", "bottom"):
@@ -149,7 +135,7 @@ def _draw_operational_strategy(ax1, result, power_axis_max=None, energy_axis_max
         range(len(result.E_TES)),
         result.E_TES,
         color=_OP_COLORS["tes"],
-        linewidth=_LINEWIDTH + 0.6,
+        linewidth=_LINE_WIDTH,
         label=r"$E_{\mathrm{TES}}$",
         zorder=2,
     )
@@ -158,12 +144,13 @@ def _draw_operational_strategy(ax1, result, power_axis_max=None, energy_axis_max
         0,
         energy_axis_max if energy_axis_max is not None else max(E_TES_MAX * 1.06, 1.2),
     )
-    _style_axes(ax3, grid=False, color=_OP_COLORS["tes"])
+    _style_twin(ax3, color=_OP_COLORS["tes"])
 
-    # daily time ticks: 0, 24, 48, 72, ...
+    # daily time ticks (0, 24, 48, ...), thinned out for long periods
     n_hours = len(result.time)
-    if n_hours <= 24 * _MAX_DAILY_TICK_DAYS:
-        ax1.set_xticks(range(0, n_hours + 1, 24))
+    n_days = math.ceil(n_hours / 24)
+    step = 24 * math.ceil(n_days / _MAX_TIME_TICKS)
+    ax1.set_xticks(range(0, n_hours + 1, step))
 
     return ax2, ax3, line1 + [fill] + line3 + line4
 
@@ -176,7 +163,7 @@ def plot_operational_strategy(
     col_labels=None,
     power_axis_max: Optional[float] = 3.0,
     energy_axis_max: Optional[float] = 8.5,
-    dpi: int = _DPI,
+    dpi=None,
 ):
     """Plot price, demand, HTHP schedule and TES state of charge for one or
     several ``optimize_operational_strategy`` results, styled per
@@ -188,6 +175,9 @@ def plot_operational_strategy(
     subplots, one per result, in the order given, each labelled (a), (b),
     (c), ... plus its name.
 
+    The figure has the fixed double paper width and the height adapts to the
+    rows, titles and legend; the legend is above the panels.
+
     Parameters
     ----------
     result : OperationalStrategyResult, or list of them, or list of lists
@@ -198,23 +188,24 @@ def plot_operational_strategy(
         - list of lists ``[[a, b], [c, d]]``: grid, one row per inner list
           (here a is top-left, b top-right, c bottom-left, d bottom-right).
         - flat list ``[a, b, c]``: one row of subplots.
-        In a grid the price and time axes are shared (same period and
-        market, so the panels are directly comparable); the thermal power
-        and TES energy axes have the same range in every panel (see
-        `power_axis_max` and `energy_axis_max`). Only the last column shows
-        the right-hand axes.
+        At most two columns. In a grid the price and time axes are shared
+        (same period and market, so the panels are directly comparable); the
+        thermal power and TES energy axes have the same range in every panel
+        (see `power_axis_max` and `energy_axis_max`). Only the last column
+        shows the right-hand axes.
     file_name : str, optional
         Name of the plant configuration, e.g. "standalone_base_recup_hthp".
         The figure is saved as ``<file_name>_operational_strategy.png``.
         Required when `save_path` is given.
     save_path : str | Path, optional
-        Directory the figure is saved in (created if missing; facecolor per
-        ``PLOT_STYLE["figure"]``). If None, nothing is saved.
+        Directory the figure is saved in (created if missing). If None,
+        nothing is saved.
     row_labels, col_labels : list of str, optional
         Labels of the rows / columns of a grid; each panel is titled
-        "(a) <column> - <row>". Defaults for a 2x2 grid: rows "Fixed heat
-        demand schedule" / "Variable heat demand schedule", columns
-        "Standalone" / "TES-Integrated". Without labels (other shapes) panels are titled
+        "(a) <column>" and, on a second line, "<row>" (keep the labels
+        short: the panels are narrow). Defaults for a 2x2 grid: rows
+        "Fixed demand" / "Variable demand", columns "Standalone" /
+        "TES-Integrated". Without labels (other shapes) panels are titled
         just "(a)", "(b)", ...
     power_axis_max : float, optional
         Upper limit [MWth] of the thermal power axis, the same in every
@@ -224,8 +215,9 @@ def plot_operational_strategy(
         Upper limit [MWhth] of the TES energy axis, the same in every panel
         (default 8.5). None: each panel is scaled to its own plant's TES
         capacity.
-    dpi : int
-        Resolution of the figure and of the saved file (default 300).
+    dpi :
+        Kept for compatibility and ignored: the resolution comes from
+        PLOT_STYLE["figure"]["dpi"].
 
     Returns
     -------
@@ -249,29 +241,44 @@ def plot_operational_strategy(
     single = n_rows * n_cols == 1
 
     if (n_rows, n_cols) == (2, 2):
-        row_labels = row_labels or [
-            "Fixed heat demand schedule",
-            "Variable heat demand schedule",
-        ]
+        row_labels = row_labels or ["Fixed demand", "Variable demand"]
         col_labels = col_labels or ["Standalone", "TES-Integrated"]
     if row_labels is not None and len(row_labels) != n_rows:
         raise ValueError("`row_labels` must have one label per row.")
     if col_labels is not None and len(col_labels) != n_cols:
         raise ValueError("`col_labels` must have one label per column.")
 
-    figsize = (
-        _FIGSIZE if single else (_STYLE_WIDTH * 1.5 * n_cols, _STYLE_HEIGHT * n_rows)
+    # the 4 entries of the legend in one row
+    n_entries = 4
+    legend_cols = n_entries
+    # titles with a second line when there is a row label
+    title_lines = 0 if single else (2 if row_labels else 1)
+    margins = PLOT_STYLE["figure"]["margins"]
+    # the gap between rows holds the title of the lower row
+    row_gap = (
+        margins["title"] + (max(title_lines, 1) - 1) * margins["title_line"] + 0.12
     )
-    fig, axes = plt.subplots(
-        n_rows,
-        n_cols,
-        figsize=figsize,
-        dpi=dpi,
-        facecolor=PLOT_STYLE["figure"]["facecolor"],
-        sharex=True,
-        sharey=True,
-        squeeze=False,
+
+    fig, axes = create_figure(
+        n_cols=n_cols,
+        n_rows=n_rows,
+        aspect=_ASPECT if n_cols == 2 else _ASPECT_SINGLE,
+        fill_width=True,
+        width="double",
+        legend_rows=math.ceil(n_entries / legend_cols),
+        titles=title_lines,
+        right_extra=_RIGHT_EXTRA,
+        col_gap=_COL_GAP,
+        row_gap=row_gap,
     )
+    axes = np.asarray(axes, dtype=object).reshape(n_rows, n_cols)
+
+    # price and time axes shared between the panels
+    for r in range(n_rows):
+        for c in range(n_cols):
+            if (r, c) != (0, 0):
+                axes[r, c].sharex(axes[0, 0])
+                axes[r, c].sharey(axes[0, 0])
 
     handles = None
     for r in range(n_rows):
@@ -283,19 +290,19 @@ def plot_operational_strategy(
             handles = handles or panel_handles
 
             if r == n_rows - 1:
-                ax1.set_xlabel("Time [h]", fontsize=_OP_FONTS["label"])
+                ax1.set_xlabel("Time [h]")
+            else:
+                ax1.tick_params(labelbottom=False)
             if c == 0:
-                ax1.set_ylabel("Electricity price [€/MWh]", fontsize=_OP_FONTS["label"])
+                ax1.set_ylabel("Electricity price [€/MWh]")
+            else:
+                ax1.tick_params(labelleft=False)
             if c == n_cols - 1:
-                ax2.set_ylabel(
-                    r"Thermal power [$\mathrm{MW_{th}}$]",
-                    fontsize=_OP_FONTS["label"],
-                )
+                ax2.set_ylabel(r"Thermal power [$\mathrm{MW_{th}}$]")
                 ax3.set_ylabel(
                     r"TES energy [$\mathrm{MWh_{th}}$]",
-                    fontsize=_OP_FONTS["label"],
                     color=_OP_COLORS["tes"],
-                    labelpad=8,
+                    labelpad=4,
                 )
             else:
                 # right-hand axes only on the last column
@@ -305,50 +312,16 @@ def plot_operational_strategy(
 
             if not single:
                 letter = f"({chr(ord('a') + r * n_cols + c)})"
-                name = " - ".join(
-                    x
-                    for x in (
-                        col_labels[c] if col_labels else None,
-                        row_labels[r] if row_labels else None,
-                    )
-                    if x
-                )
-                ax1.set_title(
-                    f"{letter} {name}" if name else letter, fontsize=_FONTS["title"]
-                )
+                first = f"{letter} {col_labels[c]}" if col_labels else letter
+                title = f"{first}\n{row_labels[r]}" if row_labels else first
+                ax1.set_title(title, pad=4)
 
     labels = [h.get_label() for h in handles]
-    legend_style = dict(
-        fontsize=_OP_FONTS["legend"],
-        framealpha=0.95,
-        handlelength=2.6,
-        columnspacing=2.0,
-    )
-    if single:
-        axes[0, 0].legend(handles, labels, loc="upper left", **legend_style)
-        fig.tight_layout()
-    else:
-        fig.legend(
-            handles,
-            labels,
-            loc="lower center",
-            bbox_to_anchor=(0.5, 0.0),
-            ncol=len(handles),
-            **legend_style,
-        )
-        fig.tight_layout(rect=(0, 0.07, 1, 1))
+    add_legend(fig, handles, labels, ncol=legend_cols, **_LEGEND_STYLE)
 
     if save_path is not None:
         if file_name is None:
             raise ValueError("`file_name` is required when `save_path` is given.")
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            save_path / f"{file_name}_operational_strategy.png",
-            dpi=dpi,
-            bbox_inches="tight",
-            facecolor=PLOT_STYLE["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {save_path / f'{file_name}_operational_strategy.png'}")
+        save_figure(fig, save_path, f"{file_name}_operational_strategy")
 
     return fig

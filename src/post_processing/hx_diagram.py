@@ -6,13 +6,12 @@ Creates heat exchanger temperature profile diagrams (Q-T diagrams).
 
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.colors import to_rgb
 from matplotlib.legend_handler import HandlerTuple
 
-from src import PLOT_STYLE
+from src import PLOT_STYLE, create_figure, save_figure
 
 # Display names of the components (PLOT_STYLE["component_names"], e.g.
 # "sink 2" -> "HX2"): only what is written on the plots changes, the names
@@ -166,9 +165,17 @@ def save_hx_table(hx_components, file_name, save_path):
 def _draw_hx_panel(ax, hx_components):
     """Draw one or more heat exchangers in series on `ax`. Each item is a
     TESpy heat exchanger or a table (CSV path / DataFrame from
-    save_hx_table, which stands for all of its rows)."""
+    save_hx_table, which stands for all of its rows).
+
+    The size of the axes, the fonts, the spines and the ticks come from
+    create_figure and the global style; only what is specific of the Q-T
+    diagram is set here.
+    """
 
     plot_style = PLOT_STYLE
+    line_w = plot_style["lines_and_markers"]["linewidth"]
+    marker_s = plot_style["lines_and_markers"]["point_size"] * 2.5
+    annotation_size = plot_style["paper_fonts"]["annotation"]
 
     # Colours of the hot and cold side of each heat exchanger, in series
     # order: index 0 (dark) = first heat exchanger, index 1 (light) = second
@@ -221,14 +228,14 @@ def _draw_hx_panel(ax, hx_components):
             q_array_shifted,
             T_hot_profile,
             color=color_hot,
-            linewidth=plot_style["lines_and_markers"]["linewidth"] + 1,
+            linewidth=line_w + 0.5,
         )
 
         (line_cold,) = ax.plot(
             q_array_shifted,
             T_cold_profile,
             color=color_cold,
-            linewidth=plot_style["lines_and_markers"]["linewidth"] + 1,
+            linewidth=line_w + 0.5,
         )
 
         legend_entries.append(((line_hot, line_cold), _display_name(data["comp_name"])))
@@ -238,10 +245,10 @@ def _draw_hx_panel(ax, hx_components):
             cumulative_Q + Q,
             data["T_hot_in"],
             color=color_hot,
-            s=plot_style["lines_and_markers"]["point_size"] * 1.5,
+            s=marker_s,
             marker="^",
             edgecolors=dark_hot,
-            linewidths=2,
+            linewidths=line_w,
             zorder=5,
         )
 
@@ -249,7 +256,7 @@ def _draw_hx_panel(ax, hx_components):
             cumulative_Q + Q,
             data["T_hot_in"] + 1,
             f"  {data['hot_in_label']}",
-            fontsize=plot_style["fonts"]["value"],
+            fontsize=annotation_size,
             ha="center",
             va="bottom",
             color="black",
@@ -259,10 +266,10 @@ def _draw_hx_panel(ax, hx_components):
             cumulative_Q,
             data["T_hot_out"],
             color=color_hot,
-            s=plot_style["lines_and_markers"]["point_size"] * 1.5,
+            s=marker_s,
             marker="v",
             edgecolors=dark_hot,
-            linewidths=2,
+            linewidths=line_w,
             zorder=5,
         )
 
@@ -270,7 +277,7 @@ def _draw_hx_panel(ax, hx_components):
             cumulative_Q,
             data["T_hot_out"] + 1,
             f"{data['hot_out_label']}  ",
-            fontsize=plot_style["fonts"]["value"],
+            fontsize=annotation_size,
             ha="center",
             va="bottom",
             color="black",
@@ -281,10 +288,10 @@ def _draw_hx_panel(ax, hx_components):
                 cumulative_Q,
                 data["T_cold_in"],
                 color=color_cold,
-                s=plot_style["lines_and_markers"]["point_size"] * 1.5,
+                s=marker_s,
                 marker="^",
                 edgecolors=dark_cold,
-                linewidths=2,
+                linewidths=line_w,
                 zorder=5,
             )
 
@@ -292,7 +299,7 @@ def _draw_hx_panel(ax, hx_components):
                 cumulative_Q,
                 data["T_cold_in"] - 1,
                 f"{data['cold_in_label']}  ",
-                fontsize=plot_style["fonts"]["value"],
+                fontsize=annotation_size,
                 ha="center",
                 va="top",
                 color="black",
@@ -303,10 +310,10 @@ def _draw_hx_panel(ax, hx_components):
                 cumulative_Q + Q,
                 data["T_cold_out"],
                 color=color_cold,
-                s=plot_style["lines_and_markers"]["point_size"] * 1.5,
+                s=marker_s,
                 marker="v",
                 edgecolors=dark_cold,
-                linewidths=2,
+                linewidths=line_w,
                 zorder=5,
             )
 
@@ -314,7 +321,7 @@ def _draw_hx_panel(ax, hx_components):
                 cumulative_Q + Q,
                 data["T_cold_out"] - 1,
                 f"  {data['cold_out_label']}",
-                fontsize=plot_style["fonts"]["value"],
+                fontsize=annotation_size,
                 ha="center",
                 va="top",
                 color="black",
@@ -325,7 +332,7 @@ def _draw_hx_panel(ax, hx_components):
                 x=cumulative_Q + Q,
                 color="gray",
                 linestyle="--",
-                linewidth=1.5,
+                linewidth=line_w,
                 alpha=0.6,
             )
 
@@ -339,12 +346,12 @@ def _draw_hx_panel(ax, hx_components):
         [name for _, name in legend_entries],
         handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},
         loc="best",
-        fontsize=plot_style["fonts"]["value"],
         framealpha=0.95,
     )
 
+    # Q-T diagrams have a light grid in both directions (create_figure sets
+    # the horizontal one only)
     grid_style = plot_style["grid"]
-
     ax.grid(
         True,
         color=grid_style["color"],
@@ -353,44 +360,22 @@ def _draw_hx_panel(ax, hx_components):
         alpha=grid_style["alpha"],
     )
 
-    for spine in ax.spines.values():
-        spine.set_color(plot_style["axes"]["spine_color"])
-        spine.set_linewidth(plot_style["axes"]["spine_linewidth"])
-
-    ax.set_box_aspect(plot_style["axes"]["box_aspect"])
-    ax.set_facecolor(plot_style["figure"]["facecolor"])
-
     y_min = min(all_temperatures) - 5
     y_max = max(all_temperatures) + 5
     ax.set_ylim(y_min, y_max)
     ax.set_xlim(-0.05, total_Q * 1.05)
 
     # Formatting
-    ax.set_xlabel(
-        r"Heat $[\mathrm{MW_{th}}]$",
-        fontsize=plot_style["fonts"]["label"],
-    )
-    ax.set_ylabel(
-        r"Temperature $[^\circ\mathrm{C}]$",
-        fontsize=plot_style["fonts"]["label"],
-    )
-
-    ticks_style = plot_style["ticks"]
-
-    ax.tick_params(
-        axis=ticks_style["axis"],
-        pad=ticks_style["pad"],
-        which=ticks_style["which"],
-        color=ticks_style["color"],
-        labelcolor=ticks_style["labelcolor"],
-        direction=ticks_style["direction"],
-        labelsize=plot_style["fonts"]["tick"],
-    )
+    ax.set_xlabel(r"Heat $[\mathrm{MW_{th}}]$")
+    ax.set_ylabel(r"Temperature $[^\circ\mathrm{C}]$")
 
 
 def plot_hx_diagram(hx_components, file_name=None, save_path=None):
     """
-    Plot heat exchanger diagrams: one graph, or several graphs side by side.
+    Plot heat exchanger diagrams: one graph, or two graphs side by side.
+
+    The figure has the fixed paper width of create_figure (single or double
+    column) and square axes of the same size as all the other diagrams.
 
     Parameters
     ----------
@@ -401,22 +386,21 @@ def plot_hx_diagram(hx_components, file_name=None, save_path=None):
         - one component: a single graph.
         - flat list ``[sink_1, sink_2]``: one graph with the heat exchangers
           in series, as before.
-        - list of lists ``[[hx1], [hx2, hx3]]``: one graph per inner list,
-          side by side from left to right, each graph with the heat
-          exchangers of its inner list in series and labelled (a), (b), ...
-          Each graph has its own axis limits.
+        - list of two lists ``[[hx1], [hx2, hx3]]``: one graph per inner
+          list, side by side from left to right, each graph with the heat
+          exchangers of its inner list in series and labelled (a), (b).
+          Each graph has its own axis limits. At most two graphs (the paper
+          widths are single and double column).
     file_name : str, optional
-        Base name for the saved file (will be saved as PNG)
+        Base name for the saved file; saved as ``<file_name>_hx_diagram.png``.
     save_path : str or Path, optional
         Directory to save the figure. If None, the figure is not saved.
 
     Returns
     -------
     fig, ax : matplotlib figure and axis (single graph), or figure and array
-        of axes (several graphs)
+        of axes (two graphs)
     """
-
-    plot_style = PLOT_STYLE
 
     # normalise the input to a list of graphs, each a list of heat exchangers
     if isinstance(hx_components, (list, tuple)):
@@ -430,39 +414,19 @@ def plot_hx_diagram(hx_components, file_name=None, save_path=None):
         panels = [[hx_components]]
     n_panels = len(panels)
 
-    w, h = plot_style["figure"]["figsize"]
-    fig, axes = plt.subplots(
-        1,
-        n_panels,
-        figsize=(w * n_panels, h),
-        dpi=plot_style["figure"]["dpi"],
-        squeeze=False,
-    )
-    axes = axes.ravel()
+    # fixed width, square axes; the panel titles (a), (b) need their own strip
+    fig, axes = create_figure(n_cols=n_panels, titles=n_panels > 1)
+    axes = np.atleast_1d(axes)
 
     for k, (ax, panel) in enumerate(zip(axes, panels)):
         _draw_hx_panel(ax, panel)
         if n_panels > 1:
-            ax.set_title(
-                f"({chr(ord('a') + k)})", fontsize=plot_style["fonts"]["title"], pad=10
-            )
-
-    fig.patch.set_facecolor(plot_style["figure"]["facecolor"])
-    if n_panels > 1:
-        fig.tight_layout()
+            ax.set_title(f"({chr(ord('a') + k)})", pad=4)
 
     if save_path is not None:
         if file_name is None:
             raise ValueError("file_name is required when save_path is given.")
-        save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            save_path / f"{file_name}_hx_diagram.png",
-            dpi=plot_style["figure"]["dpi"],
-            bbox_inches="tight",
-            facecolor=plot_style["figure"]["facecolor"],
-        )
-        print(f"✓ Figure saved: {save_path / f'{file_name}_hx_diagram.png'}")
+        save_figure(fig, save_path, f"{file_name}_hx_diagram")
 
     if n_panels == 1:
         return fig, axes[0]

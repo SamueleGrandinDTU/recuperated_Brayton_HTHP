@@ -2,10 +2,46 @@
   "figure": {
     "figsize": [6, 5],
     "dpi": 300,
-    "facecolor": "#FFFFFF"
+    "facecolor": "#FFFFFF",
+
+    "width_single": 3.34,
+    "width_double": 6.18,
+    "axes_size": 2.46,
+    "margins": {
+      "left": 0.60,
+      "right": 0.08,
+      "bottom": 0.52,
+      "top": 0.12,
+      "title": 0.22,
+      "title_line": 0.16,
+      "legend_row": 0.19,
+      "row_gap": 0.75,
+      "col_gap_min": 0.56
+    }
   },
 
-    "component_names": {
+  "fonts": {
+    "title": 18,
+    "label": 13,
+    "value": 11,
+    "legend": 9,
+    "tick": 12,
+    "isoline": 10,
+    "small_label": 7,
+    "annotation": 7
+  },
+
+  "paper_fonts": {
+    "family": "serif",
+    "mathtext": "dejavuserif",
+    "title": 10,
+    "label": 9,
+    "tick": 8,
+    "legend": 8,
+    "annotation": 7
+  },
+
+  "component_names": {
     "compressor":   "CP 1",
     "compressor 1": "CP 1",
     "compressor 2": "CP 2",
@@ -29,18 +65,8 @@
   },
 
   "lines_and_markers": {
-    "linewidth": 1.2,
-    "point_size": 5
-  },
-
-  "fonts": {
-    "title": 18,
-    "label": 13,
-    "value": 11,
-    "legend": 9,
-    "tick": 12,
-    "isoline": 10,
-    "small_label": 7
+    "linewidth": 1.0,
+    "point_size": 3
   },
 
   "layout": {
@@ -67,7 +93,7 @@
   "ticks": {
     "axis": "both",
     "which": "both",
-    "pad": 7,
+    "pad": 3,
     "color": "#B5B5B5",
     "labelcolor": "#333333",
     "direction": "in"
@@ -106,21 +132,21 @@
     "5": [-0.01, 0.0]
   },
 
-    "cycle_label_keys": {
+  "cycle_label_keys": {
     "S-BR":   "standalone_base",
     "S-IR":   "standalone_intercooled",
     "TES-BR": "tes_base",
     "TES-IR": "tes_intercooled"
   },
 
-    "cycle_colors": {
+  "cycle_colors": {
     "standalone_base": "#002aff",
     "standalone_intercooled": "#ff2a00",
     "tes_base": "#65ccff",
     "tes_intercooled": "#ff9932"
   },
 
-    "hx_colors": {
+  "hx_colors": {
     "hot":  ["#ff2a00", "#ff9932"],
     "cold": ["#002aff", "#3299ff"]
   },
@@ -147,8 +173,12 @@
       "hthp": "#ff6619",
       "tes": "#1965ff"
     },
-    "fonts": { "title": 22, "label": 20, "tick": 18, "legend": 20 },
-    "tes_axis_offset": 1.22
+    "aspect": 0.75,
+    "aspect_single": 0.45,
+    "right_extra": 0.95,
+    "col_gap": 0.15,
+    "tes_axis_offset_pt": 36,
+    "max_time_ticks": 8
   },
 
   "lcoh_category_colors": {

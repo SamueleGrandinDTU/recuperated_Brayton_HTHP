@@ -1,19 +1,24 @@
 # main/
 
-**Entry-point scripts** used to run complete workflows and specific plant cases by calling the modules and functions defined in `src`.
+**Entry-point scripts** used to run complete workflows by calling the modules and functions defined in `src`.
 
-No core modelling, numerical, or algorithmic logic should be implemented in this folder. The `main` folder only orchestrates the execution of the workflows.
+No core modelling, numerical, or algorithmic logic is implemented in this folder. The `main` folder only orchestrates the execution of the workflows.
 
-For the current case, **`standalone_base_recup_hthp.py`** creates the configured TESPy network, assembles the corresponding plant model from `src`, and runs the design-point simulation.
+The full techno-economic assessment of the paper is run through **`run_techno_economic_assessment`** (defined in `src/techno_economic_analysis.py` and called from the script in this folder). It takes as inputs:
 
-The validation workflow is executed through **`validation_hthp.py`**, which runs the validation functions defined in `src/validation` and compares the calculated plant results with the reference data stored in `data/validation`.
+- `layouts`: the plant layouts to simulate (S-BR, S-IR, TES-BR, TES-IR);
+- `price_zones`: the electricity price zones where the plants operate (DK1, DE);
+- `heat_demand_schedule`: the heat demand schedule typologies (fixed, variable);
+- `comparison`: which figures to generate and which layouts, zones, demand schedules and scenarios each of them compares;
+- `save_path`: where the results are saved (`results/paper`);
+- `lcoh_results`: true/false input to provide the calculated yearly lcoh values skipping the execution of the whole lcoh analysis.
 
-As the repository develops, the entry-point scripts will also handle the execution of **post-processing, visualization, and output generation** using the corresponding modules in `src`.
+## Workflow
 
-## Post-processing and plotting phase
-
-For the current case the post-processing consists in the generation of relevant plots. The plant's T-s diagram is generated through `plot_ts_diagram`, the temperature profile in the Sink component is also generated through `plot_hx_diagram`. Following, performance and sizing parameters are displayed in generated tables respectively through `generate_performance_parameters_table` and `generate_sizing_parameters_table`. Secondly, the exergy analysis is generated through `get_exergy_analysis` and a breakdown of exergy destruction within components is shown through `plot_exergy_destruction` function.
+For each layout the plant is built and solved, validated (S-BR), and the performance, sizing and connection tables, the T-s and heat-exchanger diagrams, the exergy analysis, the TES tank sizing, the component cost, the operational optimization on 2025 prices and the LCOH are generated. Once all layouts are solved, the requested comparison plots are produced.
 
 The general workflow is:
 
-**src → plant creation and modelling → simulation → validation/post-processing → results**
+**src → plant creation and modelling → simulation → validation/post-processing → operation and LCOH → comparison → results**
+
+The detailed steps and the `comparison` options are described in the repository design document (`docs/`).
