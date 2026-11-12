@@ -7,6 +7,9 @@ Central imports for the src package.
 from .geometry import calculate_tanks_geometry
 
 from .input import (
+    create_figure,
+    save_figure,
+    add_legend,
     PLOT_STYLE,
     set_plant_parameters,
     set_plant_components,
@@ -57,6 +60,9 @@ from .techno_economic_analysis import run_techno_economic_assessment
 
 __all__ = [
     "calculate_tanks_geometry",
+    "create_figure",
+    "save_figure",
+    "add_legend",
     "PLOT_STYLE",
     "set_plant_parameters",
     "set_plant_components",
