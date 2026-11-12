@@ -32,23 +32,11 @@ to optimise only that period instead of the whole year in the LCOH step (the
 LCOH is then skipped).
 
 Finally it builds the comparison figures requested in ``comparison`` from the
-saved tables, in ``results/paper/plots``:
-
-    "ts_diagram_base" : ["S-BR", "TES-BR"]
-        One T-s diagram with the base recuperated layouts overlaid.
-    "ts_diagram" : [["S-BR", "TES-BR"], ["S-IR", "TES-IR"]]
-        Two T-s diagrams side by side, each with two cycles overlaid.
-        A flat list, e.g. ["S-BR", "S-IR"], gives one diagram with all the
-        listed cycles overlaid.
-    "hx_diagram" : ["S-BR", "S-IR"]
-        One heat-exchanger diagram per layout, side by side.
+saved tables, in ``results/paper/plots``.
 
 Run it from the repository root, with the virtual environment active:
 
     python -m main.Brayton_hthp_techno_economic_assessment
-
-This file will be extended as the plots of the week-1 operation and the other
-comparison figures are added to ``run_techno_economic_assessment``.
 """
 
 from src import run_techno_economic_assessment
@@ -58,7 +46,7 @@ run_techno_economic_assessment(
     price_zones=["DK1", "DE"],
     heat_demand_schedule=["fixed", "variable"],
     comparison={
-        "ts_diagram_base": ["S-BR", "TES-BR"],
+        "ts_diagram_base": ["S-BR", "S-IR"],
         "ts_diagram": [["S-BR", "TES-BR"], ["S-IR", "TES-IR"]],
         "hx_diagram": ["S-BR", "S-IR"],
         ("exergy_destruction", "exergy_efficiency"): [
@@ -89,5 +77,5 @@ run_techno_economic_assessment(
         ],
     },
     save_path="results/paper",
-    lcoh_results=False,
+    lcoh_results=True,
 )
