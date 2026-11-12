@@ -4,7 +4,7 @@ src/plant_operation.py
 Operational strategy optimization for an HTHP (+ TES) industrial heat plant.
 
 The core function, ``optimize_operational_strategy``, is a MILP
-(Pyomo + GLPK) that schedules a high-temperature heat pump (HTHP) coupled
+(Pyomo + GLPK/HiGHS) that schedules a high-temperature heat pump (HTHP) coupled
 with thermal energy storage (TES) against day-ahead electricity prices,
 subject to:
 
@@ -661,6 +661,13 @@ def _solve_block(
     model.objective = pyo.Objective(rule=objective_rule, sense=pyo.minimize)
 
     solver = pyo.SolverFactory(solver_name)
+    if not solver.available(exception_flag=False):
+        # e.g. GLPK is not installed: use HiGHS (installed with `pip install highspy`)
+        print(f"Solver '{solver_name}' not available: using 'appsi_highs' instead.")
+        solver_name = "appsi_highs"
+        solver = pyo.SolverFactory(solver_name)
+        solver_options = None  # the options given are specific of the requested solver
+
     for key, value in (solver_options or {}).items():
         solver.options[key] = value
 
@@ -788,7 +795,7 @@ def optimize_operational_strategy(
     data_dir : str | Path
         Directory containing the market price CSVs.
     solver_name : str
-        Pyomo solver name (default "glpk").
+        Pyomo solver name (default "glpk", otherwise "HiGHS").
     solver_options : dict, optional
         Passed through to the solver (default: {"tmlim": 360,
         "mipgap": 0.01}).
