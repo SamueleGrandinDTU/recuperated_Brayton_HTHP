@@ -127,7 +127,13 @@ The scripts import from the `src` package (`from src import ...`) and write to p
 
 ### 2. Run the simulations
 
-* **Full techno-economic assessment.** The scripts in `main/` run the complete workflow through `run_techno_economic_assessment`, which takes the layouts to simulate, the price zones, the heat demand schedules, the comparison figures to generate and the save path (`results/paper`). For each layout it:
+**Full techno-economic assessment.** The simulation can be run directly from the command view:
+
+```bash
+python -m main.Brayton_hthp_techno_economic_assessment
+```
+
+The scripts in `main/` run the complete workflow through `run_techno_economic_assessment`, which takes the layouts to simulate, the price zones, the heat demand schedules, the comparison figures to generate and the save path (`results/paper`). For each layout it:
   1. builds and solves the plant at the design point (`create_configured_network`, `build_into`, `solve`);
   2. validates the S-BR layout against the Benvenuti reference (`validate_plant`);
   3. generates the performance, sizing and connection tables, and the T-s and heat-exchanger diagrams;
